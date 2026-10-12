@@ -2,7 +2,7 @@
 
 Static project page for **Commit Locally, Exit Globally: Coordinating Adaptive Sampling and Early Exit in Diffusion Language Models**.
 
-**Live site:** https://c4-dllm.github.io/ · **Code:** https://github.com/ming053l/C4-dLLM · **arXiv:** https://arxiv.org/abs/2607.28166
+**Live site:** https://ming053l.github.io/c4-dllm.github.io/ · **Code:** https://github.com/ming053l/C4-dLLM · **arXiv:** https://arxiv.org/abs/2607.28166
 
 Plain HTML/CSS/JavaScript, no build step. Layout follows the group's other project pages
 ([Doctor Trigger](https://ming053l.github.io/Doctor-Trigger/), [FlashReFocus](https://ming053l.github.io/FlashReFocus/),
