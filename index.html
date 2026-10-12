@@ -1,1109 +1,268 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>C⁴ — Commit Locally, Exit Globally</title>
-  <meta name="description" content="C⁴ coordinates adaptive local commitment and answer-aware global early exit for diffusion language models.">
-  <meta name="theme-color" content="#f6f3ec">
-  <meta property="og:title" content="C⁴ — Commit Locally, Exit Globally">
-  <meta property="og:description" content="Coordinating adaptive sampling and early exit in diffusion language models.">
-  <meta property="og:type" content="website">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&family=Source+Serif+4:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #f6f3ec;
-      --paper: #fffdf8;
-      --ink: #152233;
-      --muted: #606975;
-      --soft: #626c79;
-      --line: #ddd8ce;
-      --blue: #2454d8;
-      --blue-dark: #183b9f;
-      --blue-pale: #e8edff;
-      --amber: #9b5010;
-      --amber-pale: #fff0d8;
-      --cyan: #0d7b88;
-      --cyan-pale: #e2f2f2;
-      --green: #20744c;
-      --green-pale: #e4f3e9;
-      --red: #ae3e43;
-      --shadow: 0 18px 48px rgba(30, 38, 50, .08);
-      --radius: 18px;
-      --max: 1120px;
-      --sans: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --display: "Manrope", var(--sans);
-      --serif: "Source Serif 4", Georgia, serif;
-    }
-
-    * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; scroll-padding-top: calc(84px + env(safe-area-inset-top)); }
-    body {
-      margin: 0;
-      background:
-        radial-gradient(circle at 12% 6%, rgba(36,84,216,.08), transparent 24rem),
-        radial-gradient(circle at 92% 18%, rgba(198,106,19,.07), transparent 22rem),
-        var(--bg);
-      color: var(--ink);
-      font-family: var(--sans);
-      line-height: 1.65;
-      -webkit-font-smoothing: antialiased;
-      padding-right: env(safe-area-inset-right);
-      padding-bottom: env(safe-area-inset-bottom);
-      padding-left: env(safe-area-inset-left);
-    }
-    a { color: inherit; }
-    img { display: block; max-width: 100%; height: auto; }
-    button { font: inherit; }
-    :focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
-    .skip-link { position: fixed; left: 16px; top: -80px; z-index: 200; padding: 12px 20px; background: var(--ink); color: white; border-radius: 8px; }
-    .skip-link:focus { top: 12px; }
-    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
-    .wrap { width: min(var(--max), calc(100% - 40px)); margin-inline: auto; }
-    .eyebrow {
-      display: inline-flex; align-items: center; gap: 8px;
-      color: var(--blue); font: 700 12px/1 var(--display);
-      text-transform: uppercase; letter-spacing: .12em;
-    }
-    .eyebrow::before { content: ""; width: 24px; height: 2px; background: currentColor; }
-
-    /* Navigation */
-    .topbar {
-      position: sticky; top: 0; z-index: 50;
-      padding-top: env(safe-area-inset-top);
-      border-bottom: 1px solid rgba(221,216,206,.82);
-      background: rgba(246,243,236,.86);
-      backdrop-filter: blur(14px) saturate(1.2);
-      -webkit-backdrop-filter: blur(14px) saturate(1.2);
-    }
-    .nav-inner { height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 22px; }
-    .brand { font: 800 22px/1 var(--display); text-decoration: none; letter-spacing: -.04em; white-space: nowrap; }
-    .brand sup { color: var(--amber); font-size: .62em; }
-    .brand span { color: var(--soft); font-size: 12px; letter-spacing: .05em; margin-left: 7px; text-transform: uppercase; }
-    .nav-links { list-style: none; display: flex; align-items: center; gap: 2px; margin: 0; padding: 0; }
-    .nav-links a { display: block; padding: 8px 11px; border-radius: 999px; text-decoration: none; color: var(--muted); font-size: 14px; font-weight: 600; }
-    .nav-links a:hover, .nav-links a.active { color: var(--ink); background: rgba(255,255,255,.72); }
-    .nav-toggle { display: none; min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--paper); color: var(--ink); font-size: 14px; font-weight: 700; cursor: pointer; }
-    .progress { position: absolute; left: 0; bottom: -1px; height: 3px; width: 100%; background: linear-gradient(90deg,var(--blue),var(--amber)); transform: scaleX(0); transform-origin: left; }
-
-    /* Hero */
-    .hero { padding: 64px 0 24px; text-align: center; }
-    .hero-badge {
-      display: inline-flex; align-items: center; gap: 9px; padding: 7px 13px;
-      border: 1px solid rgba(36,84,216,.18); border-radius: 999px;
-      background: rgba(232,237,255,.76); color: var(--blue-dark);
-      font: 700 12px/1 var(--display); letter-spacing: .07em; text-transform: uppercase;
-    }
-    .hero-badge i { width: 7px; height: 7px; background: var(--blue); border-radius: 50%; box-shadow: 0 0 0 4px rgba(36,84,216,.12); }
-    h1 { max-width: 990px; margin: 24px auto 16px; font: 800 clamp(39px, 6.3vw, 72px)/1.04 var(--display); letter-spacing: -.055em; }
-    h1 .c4 { white-space: nowrap; color: var(--blue); }
-    h1 .c4 sup { color: var(--amber); font-size: .55em; vertical-align: super; }
-    .subtitle { max-width: 840px; margin: 0 auto 24px; color: var(--muted); font: 500 clamp(19px, 2.4vw, 27px)/1.45 var(--serif); }
-    .hero-takeaway { max-width: 720px; margin: 22px auto 0; color: var(--ink); font-size: 18px; line-height: 1.6; }
-    .hero-takeaway strong { color: var(--blue-dark); }
-    .button.primary { background: var(--blue); border-color: var(--blue); }
-    .hero-evidence { margin: 12px auto 0; color: var(--muted); font-size: 13px; }
-    .authors { margin: 0 auto 5px; font-size: 16px; font-weight: 600; }
-    .authors span { white-space: nowrap; }
-    .affiliations { color: var(--soft); font-size: 14px; }
-    .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 28px; }
-    .button {
-      display: inline-flex; align-items: center; gap: 9px; min-height: 44px; padding: 10px 18px;
-      border: 1px solid var(--ink); border-radius: 999px; background: var(--ink); color: #fff;
-      text-decoration: none; font-weight: 700; font-size: 14px; transition: .18s ease;
-    }
-    .button:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(21,34,51,.15); }
-    .button.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
-    .button.ghost:hover { background: var(--paper); border-color: var(--ink); }
-    .button svg { width: 18px; height: 18px; }
-
-    .hero-visual {
-      position: relative; margin-top: 56px; padding: 30px 28px 24px; overflow: hidden;
-      background: rgba(255,253,248,.88); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow);
-    }
-    .hero-visual::before { content: ""; position: absolute; inset: 0 0 auto; height: 5px; background: linear-gradient(90deg,var(--amber) 0 48%,var(--blue) 52% 100%); }
-    .hero-visual img { width: 100%; margin: auto; }
-    .visual-caption { display: flex; justify-content: space-between; gap: 16px; margin-top: 16px; color: var(--soft); font-size: 13px; text-align: left; }
-    .visual-caption b { color: var(--ink); }
-
-    /* Stats */
-    .stats { display: grid; grid-template-columns: repeat(4,1fr); margin: 30px 0 0; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; background: rgba(255,253,248,.66); }
-    .stat { padding: 23px 18px; border-right: 1px solid var(--line); }
-    .stat:last-child { border-right: 0; }
-    .stat-value { font: 800 clamp(28px,4vw,43px)/1 var(--display); letter-spacing: -.045em; }
-    .stat-value small { font-size: .43em; font-weight: 700; color: var(--soft); letter-spacing: -.01em; }
-    .stat-value em { color: var(--amber); font-style: normal; }
-    .stat-label { margin-top: 7px; color: var(--muted); font-size: 13px; line-height: 1.35; }
-    .proof-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px 20px; margin-top: 12px; padding: 12px 16px; border-radius: 12px; color: #dce4ef; background: var(--ink); font-size: 12px; }
-    .proof-note span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
-    .proof-note i { width: 6px; height: 6px; border-radius: 50%; background: #f1b35b; box-shadow: 0 0 0 4px rgba(241,179,91,.12); }
-
-    /* Sections */
-    section { padding: 80px 0 10px; }
-    .section-head { display: grid; grid-template-columns: 66px 1fr; gap: 20px; align-items: start; margin-bottom: 30px; }
-    .section-num { color: var(--amber); font: 700 13px/1 var(--display); letter-spacing: .12em; padding-top: 9px; }
-    h2 { margin: 0; font: 800 clamp(30px,4vw,46px)/1.12 var(--display); letter-spacing: -.04em; }
-    .section-deck { max-width: 800px; margin: 11px 0 0; color: var(--muted); font-size: 17px; }
-    .lede { max-width: 920px; margin: 0 auto; font: 500 clamp(20px,2.4vw,26px)/1.58 var(--serif); color: #2e3947; text-align: center; }
-    .lede strong { color: var(--blue-dark); }
-
-    .problem-grid, .method-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18px; margin-top: 34px; }
-    .concept-card { position: relative; padding: 26px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); overflow: hidden; }
-    .concept-card::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 5px; background: var(--accent); }
-    .concept-card .scope { color: var(--accent); font: 700 12px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; }
-    .concept-card h3 { margin: 9px 0 8px; font: 750 23px/1.25 var(--display); letter-spacing: -.025em; }
-    .concept-card p { margin: 0; color: var(--muted); }
-    .concept-card.local { --accent: var(--amber); }
-    .concept-card.global { --accent: var(--blue); }
-
-    .convergence-story { position: relative; margin-top: 36px; padding: 30px; overflow: hidden; border-radius: 22px; color: #f7f5ef; background: #172232; box-shadow: var(--shadow); }
-    .convergence-story::after { content: ""; position: absolute; width: 300px; height: 300px; right: -130px; top: -170px; border-radius: 50%; background: radial-gradient(circle, rgba(36,84,216,.42), transparent 68%); }
-    .convergence-top { position: relative; z-index: 1; display: flex; align-items: end; justify-content: space-between; gap: 24px; }
-    .convergence-top h3 { max-width: 660px; margin: 7px 0 0; font: 750 clamp(23px,3vw,32px)/1.22 var(--display); letter-spacing: -.035em; }
-    .convergence-top strong { flex: none; color: #f1b35b; font: 800 clamp(33px,5vw,56px)/1 var(--display); letter-spacing: -.05em; }
-    .convergence-top strong small { display: block; margin-top: 8px; color: rgba(255,255,255,.58); font: 600 11px/1.3 var(--sans); letter-spacing: .05em; text-align: right; text-transform: uppercase; }
-    .range-track { position: relative; height: 14px; margin: 34px 6px 18px; border-radius: 999px; background: rgba(255,255,255,.1); }
-    .range-fill { position: absolute; left: 4%; right: 4%; top: 3px; bottom: 3px; border-radius: inherit; background: linear-gradient(90deg,#54c5ce 0%,#8fa7ff 54%,#f1b35b 100%); }
-    .range-marker { position: absolute; top: 50%; width: 18px; height: 18px; border: 3px solid #fff; border-radius: 50%; background: var(--color); transform: translate(-50%,-50%); box-shadow: 0 0 0 5px rgba(255,255,255,.08); }
-    .range-marker.short { --color: #54c5ce; left: 4%; }
-    .range-marker.long { --color: #f1b35b; left: 96%; }
-    .range-labels { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; color: rgba(255,255,255,.7); font-size: 13px; }
-    .range-labels div:last-child { text-align: right; }
-    .range-labels b { display: block; margin-bottom: 3px; color: #fff; font: 750 16px/1.25 var(--display); }
-    .convergence-foot { margin-top: 22px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.12); color: rgba(255,255,255,.66); font-size: 13px; }
-
-    .figure { margin: 34px 0 0; }
-    .figure-frame { padding: 18px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; overflow: auto; }
-    .figure-frame img { width: 100%; margin: auto; cursor: zoom-in; transition: transform .2s ease; }
-    .figure-frame:hover img { transform: scale(1.006); }
-    figcaption { margin-top: 11px; color: var(--muted); font-size: 14px; }
-    figcaption b { color: var(--ink); }
-
-    /* Interactive decoder */
-    .decoder-lab { margin-top: 36px; padding: 28px; border: 1px solid var(--line); border-radius: 24px; background: var(--paper); box-shadow: var(--shadow); }
-    .lab-top { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
-    .lab-title h3 { margin: 5px 0 3px; font: 750 24px/1.2 var(--display); letter-spacing: -.025em; }
-    .lab-title p { margin: 0; color: var(--muted); font-size: 14px; }
-    .lab-controls { display: flex; align-items: center; gap: 10px; }
-    .play-button { display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 999px; padding: 9px 15px; color: #fff; background: var(--ink); cursor: pointer; font-weight: 700; }
-    .play-button:hover { background: var(--blue-dark); }
-    .step-counter { min-width: 78px; color: var(--soft); font: 600 13px/1 var(--display); text-align: right; }
-    .lab-layout { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(270px,.65fr); gap: 18px; }
-    .trajectory { padding: 22px; border-radius: 16px; background: #f3f1eb; border: 1px solid #e5e0d5; }
-    .trajectory-labels { display: flex; justify-content: space-between; color: var(--soft); font: 700 11px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; }
-    .tokens { display: grid; grid-template-columns: repeat(12, 1fr); gap: 5px; margin: 15px 0 21px; }
-    .token { display: grid; place-items: center; min-width: 0; aspect-ratio: 1; border-radius: 6px; background: #d8d7d3; color: #8e9295; font: 700 12px/1 var(--display); transition: .3s ease; }
-    .token.core { background: var(--amber-pale); color: var(--amber); box-shadow: inset 0 0 0 1px rgba(198,106,19,.25); }
-    .token.confirmed { background: #f2d3a4; color: #794007; }
-    .token.answer { background: var(--blue-pale); color: var(--blue); box-shadow: inset 0 0 0 1px rgba(36,84,216,.22); }
-    .token.done { background: var(--green-pale); color: var(--green); }
-    .candidate-flow { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }
-    .candidate { min-height: 92px; padding: 13px 12px; border: 1px solid var(--line); border-radius: 11px; background: #fff; transition: .25s ease; }
-    .candidate.active { opacity: 1; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(36,84,216,.09); }
-    .candidate.past { background: #f6f5f1; }
-    .candidate small { display: block; color: var(--soft); font: 700 11px/1.3 var(--display); letter-spacing: .06em; text-transform: uppercase; }
-    .candidate strong { display: block; margin-top: 9px; font: 800 23px/1 var(--display); }
-    .candidate span { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; }
-    .gate-panel { display: flex; flex-direction: column; gap: 11px; }
-    .gate { padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
-    .gate-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-    .gate-name { font-weight: 700; font-size: 14px; }
-    .gate-value { color: var(--blue); font: 800 15px/1 var(--display); }
-    .bar { height: 8px; margin-top: 11px; border-radius: 999px; background: #e7e7e4; overflow: hidden; }
-    .bar-fill { width: 0; height: 100%; background: var(--blue); border-radius: inherit; transition: width .35s ease; }
-    .threshold { margin-top: 7px; color: var(--soft); font-size: 12px; }
-    .stability-dots { display: flex; gap: 5px; margin-top: 11px; }
-    .stability-dots i { width: 24px; height: 8px; border-radius: 999px; background: #e7e7e4; transition: .25s ease; }
-    .stability-dots i.on { background: var(--amber); }
-    .verdict { flex: 1; min-height: 126px; padding: 18px; border-radius: 14px; background: var(--blue-pale); border: 1px solid rgba(36,84,216,.15); transition: .3s ease; }
-    .verdict.ready { background: var(--green-pale); border-color: rgba(32,116,76,.18); }
-    .verdict small { color: var(--soft); font: 700 10px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; }
-    .verdict strong { display: block; margin: 7px 0 6px; color: var(--blue); font: 800 25px/1.1 var(--display); }
-    .verdict.ready strong { color: var(--green); }
-    .verdict p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
-    .scrubber { width: 100%; min-height: 44px; margin-top: 8px; accent-color: var(--blue); cursor: pointer; }
-    .token-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: -5px 0 20px; font-size: 12px; color: var(--muted); }
-    .token-legend span { display: inline-flex; align-items: center; gap: 5px; }
-    .token-legend i { width: 16px; height: 16px; font-style: normal; }
-    .gate-check { display: inline-block; margin-top: 9px; font-size: 12px; font-weight: 700; color: var(--muted); }
-    .gate-check.pass { color: var(--green); }
-    .trajectory-labels { flex-wrap: wrap; gap: 10px; line-height: 1.4; letter-spacing: .05em; }
-    .token { color: #58616b; }
-    .play-button, .replay-button { min-height: 44px; }
-    .step-controls { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
-    .step-controls button { border: 1px solid var(--line); border-radius: 8px; background: white; min-width: 44px; min-height: 44px; cursor: pointer; }
-    .step-controls button:disabled { opacity: .45; cursor: default; }
-
-    /* Method and results */
-    .method-grid { margin-top: 0; }
-    .method-card { padding: 28px; border-radius: var(--radius); border: 1px solid var(--line); background: var(--paper); }
-    .method-card .method-code { display: inline-grid; place-items: center; width: 52px; height: 52px; border-radius: 14px; background: var(--pale); color: var(--color); font: 800 18px/1 var(--display); }
-    .method-card h3 { margin: 18px 0 4px; font: 750 23px/1.2 var(--display); letter-spacing: -.025em; }
-    .method-card .question { color: var(--color); font: 600 16px/1.45 var(--serif); }
-    .method-card p { color: var(--muted); }
-    .method-card ul { margin: 16px 0 0; padding: 0; list-style: none; }
-    .method-card li { position: relative; margin-top: 9px; padding-left: 20px; color: var(--muted); font-size: 14px; }
-    .method-card li::before { content: "✓"; position: absolute; left: 0; color: var(--color); font-weight: 800; }
-    .method-card.cvee { --color: var(--blue); --pale: var(--blue-pale); }
-    .method-card.cctc { --color: var(--amber); --pale: var(--amber-pale); }
-
-    .difference { margin-top: 28px; padding: 28px; border: 1px solid var(--line); border-radius: 22px; background: linear-gradient(135deg,rgba(255,253,248,.95),rgba(232,237,255,.58)); }
-    .difference-head { display: flex; align-items: end; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
-    .difference-head h3 { margin: 5px 0 0; font: 750 25px/1.2 var(--display); letter-spacing: -.03em; }
-    .difference-head p { max-width: 470px; margin: 0; color: var(--muted); font-size: 14px; }
-    .difference-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
-    .difference-item { min-height: 178px; padding: 18px; border: 1px solid rgba(221,216,206,.9); border-radius: 14px; background: rgba(255,255,255,.82); }
-    .difference-item .index { color: var(--amber); font: 700 11px/1 var(--display); letter-spacing: .1em; }
-    .difference-item h4 { margin: 19px 0 7px; font: 750 17px/1.25 var(--display); letter-spacing: -.02em; }
-    .difference-item p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
-
-    .result-band { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin: 0 0 28px; }
-    .result-chip { padding: 19px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
-    .result-chip b { display: block; color: var(--blue); font: 800 25px/1.05 var(--display); letter-spacing: -.03em; }
-    .result-chip span { display: block; margin-top: 7px; color: var(--muted); font-size: 13px; line-height: 1.35; }
-    .result-chip:first-child { color: #fff; border-color: var(--blue); background: linear-gradient(145deg,var(--blue),var(--blue-dark)); box-shadow: 0 12px 28px rgba(36,84,216,.18); }
-    .result-chip:first-child b { color: #fff; }
-    .result-chip:first-child span { color: rgba(255,255,255,.76); }
-    .evidence-block { margin-top: 30px; padding: 28px; border: 1px solid var(--line); border-radius: 22px; background: var(--paper); }
-    .evidence-head { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
-    .evidence-head h3 { max-width: 720px; margin: 6px 0 0; font: 750 clamp(23px,3vw,31px)/1.18 var(--display); letter-spacing: -.035em; }
-    .evidence-head p { max-width: 510px; margin: 0; color: var(--muted); font-size: 14px; }
-    .evidence-score { flex: none; min-width: 150px; text-align: right; }
-    .evidence-score strong { display: block; color: var(--green); font: 800 38px/1 var(--display); letter-spacing: -.045em; }
-    .evidence-score span { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
-
-    .reliability-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 14px; color: var(--muted); font-size: 12px; }
-    .reliability-legend span { display: inline-flex; align-items: center; gap: 6px; }
-    .reliability-legend i { width: 10px; height: 10px; border-radius: 3px; }
-    .reliability-legend .gain { background: var(--blue-pale); }
-    .reliability-legend .stable { background: var(--green-pale); }
-    .reliability-legend .watch { background: var(--amber-pale); }
-    .reliability-groups { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .matrix-group { padding: 16px; border: 1px solid var(--line); border-radius: 15px; background: #faf8f3; }
-    .matrix-group.code { grid-column: 1 / -1; }
-    .matrix-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 11px; }
-    .matrix-title strong { font: 750 16px/1.25 var(--display); }
-    .matrix-title span { color: var(--soft); font-size: 11px; }
-    .matrix-head, .matrix-row { display: grid; grid-template-columns: minmax(90px,1fr) repeat(2,minmax(82px,.85fr)); gap: 6px; align-items: center; }
-    .matrix-head { margin-bottom: 5px; color: var(--soft); font: 700 10px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; }
-    .matrix-head span:not(:first-child) { text-align: center; }
-    .matrix-row + .matrix-row { margin-top: 6px; }
-    .matrix-task { color: var(--ink); font-size: 12px; font-weight: 700; }
-    .matrix-cell { min-width: 0; padding: 7px 6px; border-radius: 8px; text-align: center; }
-    .matrix-cell.gain { background: var(--blue-pale); color: var(--blue-dark); }
-    .matrix-cell.stable { background: var(--green-pale); color: var(--green); }
-    .matrix-cell.watch { background: var(--amber-pale); color: #743b08; }
-    .matrix-cell b { display: block; font: 800 14px/1.1 var(--display); }
-    .matrix-cell small { display: block; margin-top: 4px; color: currentColor; font-size: 10px; white-space: nowrap; }
-
-    .gate-proof { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
-    .proof-card { position: relative; min-height: 192px; padding: 20px; border: 1px solid var(--line); border-radius: 15px; background: #faf8f3; }
-    .proof-card .proof-label { color: var(--soft); font: 700 11px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; }
-    .proof-card h4 { margin: 12px 0 4px; font: 750 18px/1.25 var(--display); }
-    .proof-metric { margin: 17px 0 8px; font: 800 29px/1 var(--display); letter-spacing: -.04em; }
-    .proof-card.risk .proof-metric { color: var(--red); }
-    .proof-card.success { border-color: rgba(32,116,76,.24); background: var(--green-pale); }
-    .proof-card.success .proof-metric { color: var(--green); }
-    .proof-card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.48; }
-
-    .regime-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
-    .regime-card { padding: 19px; border: 1px solid var(--line); border-radius: 15px; background: #faf8f3; }
-    .regime-card h4 { margin: 0; font: 750 18px/1.25 var(--display); }
-    .regime-card > p { margin: 5px 0 16px; color: var(--muted); font-size: 12px; }
-    .step-bar-row { display: grid; grid-template-columns: 72px 1fr 50px; gap: 8px; align-items: center; margin-top: 9px; }
-    .step-bar-row span { color: var(--muted); font-size: 11px; }
-    .step-bar-row b { text-align: right; font: 700 11px/1 var(--display); }
-    .step-track { height: 8px; border-radius: 999px; background: #e6e4df; overflow: hidden; }
-    .step-track i { display: block; width: var(--w); height: 100%; border-radius: inherit; background: var(--color); }
-    .step-bar-row.baseline { --color: #9298a0; }
-    .step-bar-row.cvee { --color: var(--blue); }
-    .step-bar-row.cctc { --color: var(--amber); }
-    .step-bar-row.full { --color: var(--green); }
-    .regime-takeaway { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink); font-size: 12px; font-weight: 700; }
-    .scaling-strip { display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 14px; align-items: center; margin-top: 14px; padding: 17px 19px; border-radius: 14px; background: var(--blue-pale); }
-    .scaling-strip h4 { margin: 0; color: var(--blue-dark); font: 750 17px/1.3 var(--display); }
-    .scaling-strip p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
-    .scale-series { display: flex; align-items: center; justify-content: flex-end; gap: 5px; color: var(--blue-dark); }
-    .scale-series span { min-width: 62px; padding: 8px 7px; border: 1px solid rgba(36,84,216,.14); border-radius: 9px; background: rgba(255,255,255,.7); text-align: center; }
-    .scale-series small { display: block; color: var(--soft); font-size: 9px; text-transform: uppercase; }
-    .scale-series b { display: block; margin-top: 2px; font: 800 14px/1 var(--display); }
-    .scale-series i { color: var(--blue); font-style: normal; font-weight: 800; }
-
-    .composition-proof { margin-top: 24px; padding: 24px; border: 1px solid var(--line); border-radius: 18px; background: #172232; color: white; }
-    .composition-proof .eyebrow { color: #8fa7ff; }
-    .composition-proof h3 { margin: 8px 0 5px; font: 750 24px/1.2 var(--display); letter-spacing: -.03em; }
-    .composition-proof > p { max-width: 760px; margin: 0; color: rgba(255,255,255,.67); font-size: 14px; }
-    .composition-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 20px; }
-    .composition-card { padding: 18px; border: 1px solid rgba(255,255,255,.14); border-radius: 13px; background: rgba(255,255,255,.06); }
-    .composition-card h4 { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 13px; font: 700 16px/1.3 var(--display); }
-    .composition-card h4 span { color: rgba(255,255,255,.58); font: 600 11px/1.3 var(--sans); text-transform: uppercase; letter-spacing: .07em; }
-    .composition-row { display: grid; grid-template-columns: 116px 1fr 100px; gap: 9px; align-items: center; margin-top: 9px; font-size: 12px; }
-    .composition-row > span:first-child { color: rgba(255,255,255,.78); }
-    .composition-row b { text-align: right; font-size: 11px; }
-    .composition-track { height: 9px; border-radius: 999px; background: rgba(255,255,255,.1); overflow: hidden; }
-    .composition-track i { display: block; width: var(--w); height: 100%; border-radius: inherit; background: var(--color); }
-    .composition-row.base { --color: #8fa7ff; }
-    .composition-row.added { --color: #54c5ce; }
-    .composition-row.conservative { --color: #f1b35b; }
-    .composition-verdict { margin-top: 14px; color: #f1b35b; font-size: 12px; font-weight: 700; }
-    .result-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
-    table { width: 100%; border-collapse: collapse; min-width: 720px; }
-    th, td { padding: 14px 16px; border-bottom: 1px solid var(--line); text-align: right; font-size: 14px; }
-    th:first-child, td:first-child { text-align: left; }
-    thead th { color: var(--soft); background: #f4f1ea; font: 700 11px/1.2 var(--display); letter-spacing: .08em; text-transform: uppercase; }
-    tbody tr:last-child td { border-bottom: 0; }
-    tbody td strong { color: var(--blue); }
-    .model-note { margin: 10px 2px 0; color: var(--soft); font-size: 12px; }
-
-    .split-figures { display: grid; grid-template-columns: 1fr; gap: 28px; margin-top: 28px; }
-    .split-figures .figure { margin: 0; }
-    .table-hint { color: var(--muted); font-size: 13px; margin: 0 0 10px; }
-    .scope-note { margin-top: 26px; padding: 18px 22px; border-left: 3px solid var(--amber); background: var(--paper); border-radius: 0 12px 12px 0; color: var(--muted); font-size: 14px; }
-    .scope-note strong { color: var(--ink); }
-    .figure-tools { display: flex; justify-content: flex-end; margin-top: 10px; }
-    .figure-expand { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; padding: 7px 14px; background: var(--paper); border: 1px solid var(--line); border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer; }
-
-    /* Animated trajectory case study */
-    .case-intro { display: grid; grid-template-columns: minmax(0,1.18fr) minmax(300px,.82fr); gap: 18px; margin-bottom: 22px; }
-    .case-prompt { padding: 27px 28px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
-    .case-prompt .tag { display: inline-block; padding: 5px 9px; border-radius: 7px; color: var(--blue); background: var(--blue-pale); font: 700 11px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; }
-    .case-prompt h3 { margin: 14px 0 8px; font: 750 25px/1.25 var(--display); letter-spacing: -.03em; }
-    .case-prompt h3 code { display: inline; margin: 0; padding: 0; background: none; font-size: .9em; }
-    .case-prompt code { display: block; margin-top: 16px; padding: 13px 15px; border-radius: 10px; background: #f2efe8; color: #384453; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .case-prompt p { margin: 13px 0 0; color: var(--muted); }
-    .case-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .case-metric { display: flex; flex-direction: column; justify-content: space-between; min-height: 126px; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
-    .case-metric.featured { color: #fff; border-color: var(--blue); background: var(--blue); }
-    .case-metric small { color: var(--soft); font: 700 10px/1.25 var(--display); letter-spacing: .09em; text-transform: uppercase; }
-    .case-metric.featured small { color: rgba(255,255,255,.7); }
-    .case-metric strong { display: block; font: 800 26px/1.05 var(--display); letter-spacing: -.035em; }
-    .case-metric span { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; }
-    .case-metric.featured span { color: rgba(255,255,255,.78); }
-    .case-metric .ok { color: var(--green); }
-    .case-metric .bad { color: var(--red); }
-
-    .animation-shell { overflow: hidden; border: 1px solid var(--line); border-radius: 22px; background: #ede8de; box-shadow: var(--shadow); }
-    .animation-bar { display: flex; align-items: center; justify-content: space-between; gap: 15px; min-height: 52px; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--paper); }
-    .window-dots { display: flex; gap: 6px; }
-    .window-dots i { width: 9px; height: 9px; border-radius: 50%; background: #d2cdc2; }
-    .window-dots i:first-child { background: #e39a73; }
-    .window-dots i:nth-child(2) { background: #e6c25f; }
-    .window-dots i:last-child { background: #74b68e; }
-    .animation-title { color: var(--muted); font: 700 11px/1 var(--display); letter-spacing: .08em; text-transform: uppercase; }
-    .animation-status { display: inline-flex; align-items: center; gap: 6px; color: var(--soft); font-size: 12px; }
-    .animation-status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--amber); }
-    .trajectory-video { display: block; width: 100%; aspect-ratio: 320 / 127; background: #f4f0e7; }
-    .media-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-    .media-actions a { font-size: 13px; padding: 8px 0; }
-    .animation-foot { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 14px 17px; border-top: 1px solid var(--line); background: var(--paper); }
-    .animation-foot p { margin: 0; color: var(--muted); font-size: 13px; }
-    .replay-button { flex: none; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; color: var(--ink); background: transparent; cursor: pointer; font-weight: 700; font-size: 12px; }
-    .replay-button:hover { border-color: var(--ink); background: #fff; }
-
-    /* Abstract / citation */
-    .abstract-box { padding: 34px; border: 1px solid var(--line); border-radius: 22px; background: var(--paper); }
-    .abstract-box p { margin: 0; color: #3f4854; font: 500 17px/1.75 var(--serif); }
-    .citation-box { position: relative; margin-top: 24px; padding: 72px 24px 24px; border-radius: 16px; background: #182231; color: #dce4ef; overflow: auto; }
-    pre { margin: 0; font: 13px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; }
-    .copy-button { position: absolute; top: 12px; right: 12px; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; padding: 7px 11px; color: #fff; background: rgba(255,255,255,.08); cursor: pointer; font-size: 12px; }
-    .copy-button:hover { background: rgba(255,255,255,.16); }
-    .copy-button { min-height: 44px; }
-    .citation-status { min-height: 24px; margin-top: 8px; color: var(--muted); font-size: 13px; }
-    #citation { overflow-wrap: anywhere; }
-
-    footer { margin-top: 90px; padding: 30px 0 36px; border-top: 1px solid var(--line); color: var(--soft); font-size: 13px; }
-    .footer-inner { display: flex; justify-content: space-between; gap: 18px; }
-
-    /* Lightbox */
-    .lightbox { width: min(1500px, calc(100vw - 32px)); max-width: none; max-height: 94dvh; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); color: var(--ink); }
-    .lightbox::backdrop { background: rgba(12,18,27,.86); }
-    .lightbox-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
-    .lightbox-toolbar h2 { font: 700 18px/1.4 var(--display); letter-spacing: 0; }
-    .lightbox-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-    .lightbox-actions button, .lightbox-actions a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: white; color: var(--ink); font-size: 13px; text-decoration: none; cursor: pointer; }
-    .lightbox-viewport { max-height: 70dvh; overflow: auto; background: white; }
-    .lightbox img { width: 100%; max-width: none; margin: auto; }
-    .lightbox-viewport.zoomed img { width: max(200%, 1400px); }
-    .lightbox-caption { margin: 12px 0 0; color: var(--muted); font-size: 13px; }
-
-    @media (max-width: 840px) {
-      .nav-inner { position: relative; height: 64px; gap: 12px; }
-      .nav-toggle { display: inline-flex; align-items: center; gap: 12px; }
-      .nav-links { display: none; position: absolute; top: 64px; left: 0; right: 0; grid-template-columns: 1fr 1fr; gap: 6px; padding: 12px; border: 1px solid var(--line); border-radius: 0 0 16px 16px; background: var(--paper); box-shadow: var(--shadow); }
-      .nav-links.is-open { display: grid; }
-      .nav-links a { white-space: nowrap; min-height: 44px; display: flex; align-items: center; }
-      .brand { flex: none; }
-      .brand span { display: none; }
-      .hero { padding-top: 60px; }
-      .stats, .result-band { grid-template-columns: 1fr 1fr; }
-      .stat:nth-child(2) { border-right: 0; }
-      .stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
-      .problem-grid, .method-grid, .split-figures, .lab-layout, .case-intro { grid-template-columns: 1fr; }
-      .reliability-groups, .gate-proof, .regime-grid { grid-template-columns: 1fr; }
-      .matrix-group.code { grid-column: auto; }
-      .composition-grid { grid-template-columns: 1fr; }
-      .scaling-strip { grid-template-columns: 1fr; }
-      .scale-series { justify-content: flex-start; }
-      .evidence-head { align-items: flex-start; flex-direction: column; }
-      .evidence-score { text-align: left; }
-      .difference-grid { grid-template-columns: 1fr 1fr; }
-      .convergence-top { align-items: flex-start; flex-direction: column; }
-      .convergence-top strong small { text-align: left; }
-      .lab-top { align-items: flex-start; flex-direction: column; }
-      .gate-panel { display: grid; grid-template-columns: 1fr 1fr; }
-      .verdict { grid-column: 1 / -1; }
-      .visual-caption { flex-direction: column; }
-    }
-    @media (max-width: 560px) {
-      .wrap { width: min(var(--max), calc(100% - 24px)); }
-      .hero { padding-top: 48px; }
-      h1 { font-size: 39px; }
-      .authors { font-size: 14px; }
-      .stats { grid-template-columns: 1fr 1fr; }
-      .stat { padding: 20px 12px; }
-      .stat:nth-child(3) { border-right: 1px solid var(--line); }
-      .hero-badge { font-size: 10px; letter-spacing: .04em; line-height: 1.5; }
-      .hero-takeaway { font-size: 17px; }
-      section { padding-top: 62px; }
-      .section-head { grid-template-columns: 1fr; gap: 6px; }
-      .section-num { padding-top: 0; }
-      .decoder-lab { padding: 18px; }
-      .candidate-flow { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
-      .candidate { min-height: auto; padding: 12px 7px; }
-      .candidate small { letter-spacing: 0; font-size: 11px; }
-      .candidate span { font-size: 12px; }
-      .trajectory { padding: 16px 12px; }
-      .tokens { grid-template-columns: repeat(6, 1fr); }
-      .gate-panel { grid-template-columns: 1fr; }
-      .verdict { grid-column: auto; }
-      .result-band { grid-template-columns: 1fr 1fr; }
-      .result-chip { padding: 16px 12px; }
-      .result-chip b { font-size: 23px; }
-      .abstract-box { padding: 24px; }
-      .animation-bar .animation-title { display: none; }
-      .animation-foot { align-items: flex-start; flex-direction: column; }
-      .difference-grid { grid-template-columns: 1fr; }
-      .difference-head { align-items: flex-start; flex-direction: column; }
-      .evidence-block { padding: 20px 14px; }
-      .matrix-group { padding: 14px 10px; }
-      .matrix-head, .matrix-row { grid-template-columns: minmax(82px,1fr) repeat(2,minmax(76px,.9fr)); }
-      .composition-proof { padding: 20px 14px; }
-      .composition-row { grid-template-columns: 96px 1fr 88px; gap: 6px; }
-      .convergence-story { padding: 23px; }
-      .range-labels { gap: 14px; }
-      .footer-inner { flex-direction: column; }
-      .lightbox { padding: 14px; }
-      .figure-frame { padding: 10px; }
-    }
-    @media (max-width: 360px) {
-      h1 { font-size: 37px; }
-      .hero-badge { max-width: 296px; }
-      .actions { gap: 8px; }
-      .button { padding-inline: 15px; }
-      .matrix-head, .matrix-row { grid-template-columns: minmax(80px,1fr) repeat(2,minmax(74px,.9fr)); }
-    }
-    @media (max-height: 600px) and (orientation: landscape) {
-      .hero { padding-top: 30px; }
-      .hero-badge { padding-block: 6px; }
-      h1 { margin-top: 16px; font-size: clamp(39px, 6vw, 52px); }
-      .subtitle { margin-bottom: 16px; font-size: 20px; }
-      .hero-takeaway { margin-top: 14px; }
-      .actions { margin-top: 18px; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      html { scroll-behavior: auto; }
-      *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>C⁴: Commit Locally, Exit Globally</title>
+<meta name="description" content="C⁴ is a training-free decoder for diffusion language models: it commits tokens faster inside each block and stops the whole sequence once the answer has settled. 2.6–18.6× measured decoding-loop speedup across 12 tasks on LLaDA and Dream with one frozen setting.">
+<meta property="og:title" content="C⁴: Commit Locally, Exit Globally">
+<meta property="og:description" content="Coordinating adaptive sampling and early exit in diffusion language models. Training-free, one frozen setting, 12 tasks, 2 backbones.">
+<meta property="og:image" content="https://c4-dllm.github.io/static/fig/fig_decoding.webp">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='32' height='32' rx='8' fill='%2312263f'/%3E%3Cpath d='M20.5 10.2A8 8 0 1 0 20.5 21.8' fill='none' stroke='%23e3b04b' stroke-width='3.2' stroke-linecap='round'/%3E%3Ccircle cx='23.6' cy='8.6' r='2.6' fill='%235b9bd5'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:ital@1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="static/css/site.css?v=4">
 </head>
 <body>
-  <a class="skip-link" href="#top">Skip to content</a>
-  <nav class="topbar" aria-label="Main navigation">
-    <div class="wrap nav-inner">
-      <a class="brand" href="#top">C<sup>4</sup><span>Diffusion decoding</span></a>
-      <button class="nav-toggle" id="navToggle" type="button" aria-controls="navSections" aria-expanded="false">Sections <span aria-hidden="true">☰</span></button>
-      <ul class="nav-links" id="navSections">
-        <li><a href="#motivation">Motivation</a></li>
-        <li><a href="#demo">Walkthrough</a></li>
-        <li><a href="#method">Method</a></li>
-        <li><a href="#case-study">Case study</a></li>
-        <li><a href="#results">Results</a></li>
-        <li><a href="#paper">Paper</a></li>
-      </ul>
-    </div>
-    <div class="progress" aria-hidden="true"></div>
+
+<header class="hero wrap">
+  <h1 class="mark">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="#12263f"/><path d="M20.5 10.2A8 8 0 1 0 20.5 21.8" fill="none" stroke="#e3b04b" stroke-width="3.2" stroke-linecap="round"/><circle cx="23.6" cy="8.6" r="2.6" fill="#5b9bd5"/></svg>
+    <span>C<sup class="four">4</sup>: <i>Commit Locally</i>, <b>Exit Globally</b></span>
+  </h1>
+  <p class="subtitle">Coordinating Adaptive Sampling and Early Exit in Diffusion Language Models</p>
+  <ul class="authors">
+    <li><a class="name" href="https://ming053l.github.io/" target="_blank" rel="noopener">Chia-Ming Lee</a><sup>1,2</sup></li>
+    <li><span class="name">Shao-Kai Liu</span><sup>1</sup></li>
+    <li><a class="name" href="https://www.albany.edu/faculty/mchang2/" target="_blank" rel="noopener">Ming-Ching Chang</a><sup>2</sup></li>
+    <li><a class="name" href="https://scholar.google.com/citations?user=gMBvzGoAAAAJ&amp;hl=en" target="_blank" rel="noopener">Xin Li</a><sup>2</sup></li>
+    <li><a class="name" href="https://yulunalexliu.github.io/" target="_blank" rel="noopener">Yu-Lun Liu</a><sup>1</sup></li>
+    <li><a class="name" href="https://cchsu.info/" target="_blank" rel="noopener">Chih-Chung Hsu</a><sup>1</sup></li>
+  </ul>
+  <ul class="affils">
+    <li><sup>1</sup>National Yang Ming Chiao Tung University</li>
+    <li><sup>2</sup>University at Albany, SUNY</li>
+  </ul>
+  <nav class="links" aria-label="Paper links">
+    <a class="pill" href="static/pdf/paper.pdf" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>Paper <small>PDF</small></a>
+    <a class="pill" href="https://arxiv.org/abs/2607.28166" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4h16v2H4zm0 4h10v2H4zm0 4h16v2H4zm0 4h10v2H4z"/></svg>arXiv</a>
+    <a class="pill" href="https://github.com/ming053l/C4-dLLM" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.1.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.04 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.58.23 2.75.11 3.04.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5z"/></svg>Code <small>GitHub</small></a>
+    <a class="pill" href="#video"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Video</a>
+    <a class="pill" href="#bibtex"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg>BibTeX</a>
   </nav>
+</header>
 
-  <main id="top" tabindex="-1">
-    <header class="hero wrap">
-      <div class="hero-badge"><i></i> Training-free decoding · one fixed configuration</div>
-      <h1><span class="c4">C<sup>4</sup></span>: Commit Locally,<br>Exit Globally</h1>
-      <p class="subtitle">Coordinating Adaptive Sampling and Early Exit in Diffusion Language Models</p>
-      <p class="authors">
-        <span>Chia-Ming Lee<sup>1,2</sup></span> · <span>Shao-Kai Liu<sup>1</sup></span> ·
-        <span>Ming-Ching Chang<sup>2</sup></span> · <span>Xin Li<sup>2</sup></span> ·
-        <span>Yu-Lun Liu<sup>1</sup></span> · <span>Chih-Chung Hsu<sup>1</sup></span>
-      </p>
-      <p class="affiliations"><sup>1</sup>National Yang Ming Chiao Tung University &nbsp; · &nbsp; <sup>2</sup>University at Albany, SUNY</p>
-      <p class="hero-takeaway">Spend fewer steps on diffusion decoding.<br><strong>Commit tokens locally. Stop when the answer is confident and stable.</strong></p>
-      <div class="actions">
-        <a class="button primary" href="#case-study"><span aria-hidden="true">▶</span> Watch decoding</a>
-        <a class="button ghost" href="static/pdf/paper.pdf">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
-          Paper (revised)
-        </a>
-        <a class="button ghost" href="https://arxiv.org/abs/2607.28166">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 20h14"/></svg>
-          arXiv
-        </a>
-        <a class="button ghost" href="https://github.com/ming053l/C4-dLLM">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .7a11.5 11.5 0 0 0-3.64 22.4c.58.1.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.53-1.34-1.29-1.7-1.29-1.7-1.05-.72.08-.7.08-.7 1.17.08 1.78 1.2 1.78 1.2 1.04 1.77 2.72 1.26 3.38.96.1-.75.4-1.26.74-1.55-2.57-.3-5.27-1.29-5.27-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.16 1.18A10.9 10.9 0 0 1 12 6.11c.98 0 1.95.13 2.86.39 2.2-1.49 3.16-1.18 3.16-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.71 5.39-5.29 5.68.42.36.79 1.07.79 2.16v3.24c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .7z"/></svg>
-          Code
-        </a>
+<div class="band">
+  <div class="wrap wide">
+    <div id="replay" class="replay" aria-label="Recorded decoding replay"></div>
+    <p class="caption"><b>The same prompt, decoded twice.</b> Left: C<sup>4</sup>. Right: full decoding, which runs every scheduled step.
+      Both panels replay a recorded LLaDA-8B-Instruct run step by step at its measured speed on one RTX 3090; every token, confidence and gate value comes from the logged model state. One sample per task, not an average: task-level results are <a href="#results">below</a>.</p>
+  </div>
+</div>
+
+<nav class="toc" aria-label="Sections">
+  <a href="#overview">Overview</a><a href="#method">Method</a><a href="#results">Results</a><a href="#video">Video</a><a href="#bibtex">BibTeX</a>
+</nav>
+
+<main class="wrap">
+
+<section id="overview">
+  <p class="lead-p"><b>C<sup>4</sup></b> speeds up diffusion language models by making two decisions separately.
+    <b>Locally</b>, inside the block being decoded, it commits confident tokens sooner, so each block finishes in fewer steps.
+    <b>Globally</b>, it watches the answer that the model currently predicts and stops the whole sequence once that answer is both confident and no longer changing.
+    It needs no training and no extra forward pass, and one frozen setting serves all 12 tasks on both LLaDA and Dream.</p>
+  <div class="stats">
+    <div class="stat"><div class="num">2.6–18.6<small>×</small></div><div class="lbl">measured decoding-loop speedup over full decoding</div></div>
+    <div class="stat"><div class="num">64–95<small>%</small></div><div class="lbl">fewer decoding steps</div></div>
+    <div class="stat"><div class="num">0<small> / 24</small></div><div class="lbl">task–model settings losing more than 2 accuracy points</div></div>
+    <div class="stat"><div class="num">1</div><div class="lbl">setting, calibrated once on LLaDA, reused on Dream unchanged</div></div>
+  </div>
+</section>
+
+<section id="abstract">
+  <h2 class="sec">Abstract</h2>
+  <div class="abstract-body"><p>Diffusion language models predict tokens in parallel but still require many iterative forward
+passes. Adaptive sampling accelerates local token commitment, while recent global stopping
+methods seek to end generation early. Our trajectory analysis shows that short answers can stabilize early in decoding,
+whereas reasoning outputs often require more steps to settle. A fixed progress threshold
+therefore struggles to avoid both redundant computation on short-answer tasks and premature
+termination on reasoning tasks.
+We introduce <b>C<sup>4</sup></b>, a training-free framework that combines local decoding
+acceleration with adaptive global early exit.
+<b>Confidence-Verified Early Exit</b> (CVEE) determines when to end generation,
+skipping the remaining steps once its stopping criterion is met. It combines confidence
+and temporal agreement to adapt stopping to the observed revision history.
+<b>Commit-Core-Then-Confirm</b> (CCTC) accelerates token commitment while generation
+continues, reducing the decoding steps needed to complete each block. It extends
+confidence-threshold parallel decoding with a boundary-anchored core and one-step
+confirmation of deferred predictions, constraining additional commitments to mitigate
+premature freezing under unresolved context.
+With CVEE calibrated once on LLaDA, the same numerical settings transfer across all 12
+zero-shot tasks and to Dream without recalibration. Under this configuration, C<sup>4</sup> reduces
+decoding steps by 64–95% and achieves measured decoding-loop speedups of
+2.6×–18.6×, with task performance close to full decoding. Component analyses show complementary contributions: early exit supplies
+most savings on short-answer tasks, while local acceleration contributes more on reasoning
+and code generation.</p></div>
+</section>
+
+<section id="method">
+  <h2 class="sec">Method</h2>
+
+  <div class="finding first">
+    <div class="f-k">Observation</div>
+    <h3>Answers settle at very different times.</h3>
+    <p>A diffusion LM shows a full provisional output at every step, so you can read off its current answer long before decoding ends.
+      We record, on full LLaDA decodes of MMLU, GSM8K and MATH, the point after which that answer never changes again.
+      The point by which 90% of answers have settled ranges from <b>4%</b> of the decoding schedule on short-answer tasks to <b>96%</b> on long reasoning.</p>
+    <div class="settle" aria-hidden="true">
+      <div class="settle-track"><span class="settle-fill"></span><span class="settle-dot a" style="left:4%"></span><span class="settle-dot b" style="left:96%"></span></div>
+      <div class="settle-lbl"><span><b>4%</b> short answers</span><span><b>96%</b> long reasoning</span></div>
+    </div>
+    <p>A stop rule tied to decoding progress cannot fit both: wait long enough for reasoning and you waste most of the steps on short answers; stop early enough for short answers and you cut reasoning off mid-revision.
+      So C<sup>4</sup> stops on evidence from the answer itself, and gets its speed on long outputs from somewhere else: faster commitment inside each block.</p>
+    <figure>
+      <div class="frame"><img src="static/fig/fig_phase_diagram.webp" alt="Phase diagram of commit time versus stabilization time for Prophet and CVEE on MMLU, MATH and HumanEval" loading="lazy" width="1800" height="397"></div>
+      <figcaption><b>When each method stops, against when the answer settled.</b> Each faint line joins Prophet and CVEE on the same LLaDA trajectory. Points below the diagonal stopped before the final answer appeared. On MMLU both stop near stabilization; on MATH and HumanEval, Prophet often stops before the answer has settled, while CVEE waits.</figcaption>
+    </figure>
+    <details class="more">
+      <summary>Show the trajectories behind this (paper Figure 2)</summary>
+      <figure>
+        <div class="frame"><img src="static/fig/fig_cvee_trace_agg.webp" alt="Aggregate trajectories: probability the candidate is correct, confidence, run length and entropy over decoding progress for Prophet on GSM8K+MATH, CVEE on MMLU and CVEE on GSM8K+MATH" loading="lazy" width="1800" height="663"></div>
+        <figcaption><b>Stabilization timing shapes the opportunity for early exit.</b> MMLU predictions settle early, leaving much of the budget unused; GSM8K and MATH keep changing late. CVEE exits early on MMLU and waits on the reasoning tasks, while Prophet can trigger while those predictions are still changing.</figcaption>
+      </figure>
+    </details>
+  </div>
+
+  <div class="finding">
+    <div class="f-k">Overview</div>
+    <h3>Two decisions on one trajectory.</h3>
+    <figure>
+      <div class="frame"><img src="static/fig/fig_decoding.webp" alt="C4 overview: CCTC commits a core and confirms deferred tokens; CVEE tracks prediction, confidence and run length and exits" loading="lazy" width="1800" height="607"></div>
+      <figcaption><b>Where to commit, and when to stop.</b> CCTC uses token-level confidence to advance a boundary-anchored core and to confirm deferred predictions one step later. On the trajectory this produces, CVEE reads the current answer, its confidence and how long it has stayed the same, and exits when both conditions hold; the remaining masks are then filled in one step.</figcaption>
+    </figure>
+    <div class="cards two-col">
+      <div class="card" style="--c: var(--blue)">
+        <div class="k">CVEE · when to stop the sequence</div>
+        <p>At every step, a fixed parser pulls the current answer out of the provisional output. CVEE stops once</p>
+        <div class="eq">
+          <div><span class="v">c<sub>t</sub></span> ≥ τ <span class="eq-note">mean confidence over the answer span</span></div>
+          <div><span class="v">run<sub>t</sub></span> ≥ max(<span class="v">p</span><sub>min</sub>, ⌈γ · <span class="v">changes<sub>t</sub></span>⌉) <span class="eq-note">steps unchanged, more after each revision</span></div>
+        </div>
+        <p>Each time the answer changes, the required number of unchanged steps grows. An answer that settles at once exits after three steps; one that keeps revising has to stay put longer. Nothing in the rule depends on how far through the schedule decoding is.</p>
       </div>
-
-      <div class="stats" aria-label="Headline results">
-        <div class="stat"><div class="stat-value"><em>18.66×</em></div><div class="stat-label">peak wall-clock speedup<br>LLaDA · WinoGrande</div></div>
-        <div class="stat"><div class="stat-value">3.4<small> / 64</small></div><div class="stat-label">average decoding steps<br>LLaDA · WinoGrande</div></div>
-        <div class="stat"><div class="stat-value">0<small> / 24</small></div><div class="stat-label">settings with an accuracy drop greater than 2 points</div></div>
-        <div class="stat"><div class="stat-value">1 → 24</div><div class="stat-label">one frozen configuration · 12 tasks × 2 backbones</div></div>
+      <div class="card" style="--c: var(--gold)">
+        <div class="k">CCTC · which tokens to commit now</div>
+        <p>Among masked positions in the active block whose confidence clears τ<sub>CCTC</sub>, CCTC commits a <b>core</b> next to the resolved left boundary, allowed to cross at most <span class="v">H</span> = 1 unresolved position.
+          Confident positions further right are <b>deferred</b>: their prediction is recorded and committed at the next step only if it is still confident and still the same token.</p>
+        <p>The decoder's own scheduled commits are kept, so progress is guaranteed, and confirmation reuses the next forward pass, so it costs no extra model call. A block whose positions are all committed skips its remaining steps.</p>
       </div>
-      <p class="hero-evidence">Headline comparison: 75.5% → 75.5% accuracy vs. full decoding on WinoGrande. <a href="#results">See evaluation details ↗</a></p>
-      <div class="proof-note" aria-label="Evaluation properties"><span><i></i>Measured wall-clock speedup</span><span><i></i>Single RTX 4090</span><span><i></i>Zero-shot · training-free</span><span><i></i>LLaDA → Dream transfer</span></div>
-    </header>
+    </div>
+    <figure>
+      <div class="frame"><img src="static/fig/fig_cctc_compare.webp" alt="CCTC example: core commits near the boundary, low-confidence holes, deferred tokens confirmed at the next step" loading="lazy" width="1800" height="509"></div>
+      <figcaption><b>Commit the core, then confirm.</b> At step <span class="v">t</span>−1 the core commits <i>diffusion</i> and crosses one low-confidence hole (<span class="v">H</span> = 1) to reach <i>language</i>; <i>agent</i> and <i>system</i> are confident but far from the boundary, so they are deferred. At step <span class="v">t</span> they still predict the same tokens and are confirmed.</figcaption>
+    </figure>
+    <div class="chips"><span>τ<sub>CVEE</sub> = 0.7</span><span>γ = 2.0</span><span>p<sub>min</sub> = 3</span><span>τ<sub>CCTC</sub> = 0.8</span><span>H = 1</span><span>frozen for all 12 tasks × 2 backbones</span></div>
+  </div>
 
-    <section id="motivation">
-      <div class="wrap">
-        <div class="section-head">
-          <div class="section-num">01</div>
-          <div><div class="eyebrow">Motivation</div><h2>Two kinds of slack. Two different decisions.</h2><p class="section-deck">A diffusion LM reveals a provisional full sequence at every denoising step. The answer can settle early—even while the decoder keeps working.</p></div>
-        </div>
-        <p class="lede">The key is to separate the <strong>local, bounded question of where to commit tokens</strong> from the <strong>global, final question of when to stop the sequence</strong>.</p>
-        <div class="convergence-story">
-          <div class="convergence-top">
-            <div><div class="eyebrow" style="color:#7ed7dd">The hidden mismatch</div><h3>The point where 90% of answers have stabilized moves almost across the entire decoding schedule.</h3></div>
-            <strong>4% → 96%<small>stabilization progress</small></strong>
-          </div>
-          <div class="range-track" aria-label="Answer stabilization ranges from 4 percent to 96 percent of decoding"><div class="range-fill"></div><i class="range-marker short"></i><i class="range-marker long"></i></div>
-          <div class="range-labels"><div><b>Short answers settle early</b>MMLU can expose its final answer near the beginning.</div><div><b>Reasoning settles late</b>MATH may keep revising until almost the full horizon.</div></div>
-          <div class="convergence-foot">Observed under full decoding on MMLU and MATH: stabilization means matching the eventual answer, not necessarily the correct answer. CVEE follows this changing trajectory instead of a fixed stopping schedule.</div>
-        </div>
-        <div class="problem-grid">
-          <article class="concept-card local">
-            <div class="scope">Local & bounded</div>
-            <h3>Which positions are ready?</h3>
-            <p>Block acceleration commits confident positions while decoding continues. Committed tokens are not revisited: a mistake can influence later context, but it does not immediately terminate the whole sequence.</p>
-          </article>
-          <article class="concept-card global">
-            <div class="scope">Global & final</div>
-            <h3>Has the answer truly settled?</h3>
-            <p>Sequence termination freezes the graded answer. The gate must therefore follow the evolving answer itself—not a fixed schedule or an aggregate token statistic.</p>
-          </article>
-        </div>
-        <figure class="figure">
-          <div class="figure-frame"><img src="static/images/phase-diagram.png" width="2501" height="550" loading="lazy" alt="Exit versus stabilization phase diagram for MMLU, MATH, and HumanEval"></div>
-          <figcaption><b>Exit–stabilization phase diagram.</b> Answer convergence varies sharply by task. A single progress threshold cannot safely cover short answers, long reasoning, and code.</figcaption>
-        </figure>
+  <div class="finding" id="gate-lab">
+    <div class="f-k">Step through a recorded run</div>
+    <h3>Watch both gates on a real trajectory.</h3>
+    <p>Pick a task and scrub through the steps. The token row is the active generation; the gate panel shows the answer CVEE extracts at that step, its confidence, and how many unchanged steps it still needs.</p>
+    <div id="lab" class="lab" aria-live="polite"></div>
+  </div>
+</section>
+
+<section id="results">
+  <h2 class="sec">Results</h2>
+  <p>Zero-shot evaluation on 12 tasks: five short-answer (64-token output), five long-reasoning (256) and two code-generation tasks graded by hidden tests (384).
+    Backbones are LLaDA-8B-Instruct and Dream-7B-Instruct with greedy decoding in bf16; speedup is tokens per second relative to full decoding of the same model, timed on one RTX 4090.</p>
+
+  <div class="finding first">
+    <div class="f-k">Main result</div>
+    <h3>Faster everywhere, accuracy within two points everywhere.</h3>
+    <div class="heat-legend"><span>2×</span><i></i><span>19×</span><span class="hl-note">cell: decoding-loop speedup · Δ accuracy in points vs. full decoding</span></div>
+    <div class="table-wrap">
+      <table class="heat" id="heat">
+        <thead><tr><th>Task</th><th>Output</th><th>LLaDA-8B</th><th>Dream-7B</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <p class="note">Speedup is method TPS over full-decoding TPS on a fixed 20-example timing subset (three repeats); accuracy and steps use each task's full evaluation set. Accuracy differences are point estimates on finite samples, not equivalence claims. Full table, including Prophet, SchED, SlowFast, KLASS and WINO: Table 1 of the paper.</p>
+  </div>
+
+  <div class="finding">
+    <div class="f-k">Where the savings come from</div>
+    <h3>Early exit carries short answers; faster commitment carries reasoning and code.</h3>
+    <p>Starting from full decoding, add the CVEE exit gate alone, then the CCTC core, then one-step confirmation, then CCTC on every block including the last (= C<sup>4</sup>). Bars are average decoding steps.</p>
+    <div class="seg" role="radiogroup" aria-label="Backbone">
+      <button role="radio" aria-checked="true" data-bb="llada">LLaDA-8B</button><button role="radio" aria-checked="false" data-bb="dream">Dream-7B</button>
+    </div>
+    <div id="abl" class="abl"></div>
+    <p class="note">On MMLU the exit gate alone already removes 89% of the steps. On GSM8K it removes almost nothing (250 of 256 steps on LLaDA, all 256 on Dream), because reasoning answers settle near the end; CCTC supplies the speedup there. Values: Table 3 of the paper.</p>
+  </div>
+
+  <div class="finding">
+    <div class="f-k">Why both conditions</div>
+    <h3>Confidence alone or stability alone each fail somewhere.</h3>
+    <div class="core">
+      <div class="core-card bad">
+        <div class="core-k">Confidence only · HumanEval · LLaDA</div>
+        <div class="core-num">40.2 → 4.9<small> %</small></div>
+        <div class="core-lbl">Confident is not the same as finished.</div>
+        <p>Stopping as soon as the answer span is confident ends a 384-step program after 9.7 steps on average, and accuracy collapses.</p>
       </div>
-    </section>
-
-    <section id="demo">
-      <div class="wrap">
-        <div class="section-head">
-          <div class="section-num">02</div>
-          <div><div class="eyebrow">Interactive walkthrough</div><h2>Two controls, step by step.</h2><p class="section-deck">Move the slider or press play. CCTC advances local commitments; CVEE separately tracks the extracted answer until both confidence and temporal stability pass.</p></div>
-        </div>
-        <div class="decoder-lab" aria-label="Interactive C4 decoding demonstration">
-          <div class="lab-top">
-            <div class="lab-title"><div class="eyebrow">Illustrative · not live inference</div><h3>Candidate answer: <span id="currentAnswer">538</span></h3><p>A simplified six-step example. These are not measured model outputs.</p></div>
-            <div class="lab-controls"><button class="play-button" id="playDemo" type="button" aria-label="Play decoder animation">▶ <span>Play</span></button><div class="step-counter" id="stepCounter">Step 1 / 6</div></div>
-          </div>
-          <div class="lab-layout">
-            <div class="trajectory">
-              <div class="trajectory-labels"><span>CCTC · local commitment</span><span id="commitLabel">3 / 12 committed</span></div>
-              <div class="tokens" id="tokens" aria-label="Token commitment states"></div>
-              <div class="token-legend" aria-label="Token legend"><span><i class="token">·</i> Masked</span><span><i class="token core">C</i> Core</span><span><i class="token confirmed">✓</i> Confirmed</span><span><i class="token answer">?</i> Provisional answer</span><span><i class="token done">F</i> Exit fill</span></div>
-              <div class="candidate-flow">
-                <div class="candidate" id="candidate0"><small>2 steps ago</small><strong>—</strong><span>No history yet</span></div>
-                <div class="candidate" id="candidate1"><small>1 step ago</small><strong>—</strong><span>No history yet</span></div>
-                <div class="candidate active" id="candidate2"><small>Current</small><strong>538</strong><span>run = 1</span></div>
-              </div>
-              <input class="scrubber" id="scrubber" type="range" min="0" max="5" value="0" step="1" aria-label="Denoising step">
-              <div class="step-controls"><button id="previousStep" type="button" aria-label="Previous denoising step">←</button><span>Scrub to inspect each step</span><button id="nextStep" type="button" aria-label="Next denoising step">→</button></div>
-            </div>
-            <div class="gate-panel">
-              <div class="gate">
-                <div class="gate-line"><span class="gate-name">Confidence</span><span class="gate-value" id="confidenceValue">0.41</span></div>
-                <div class="bar"><div class="bar-fill" id="confidenceBar"></div></div>
-                <div class="threshold">Required: c<sub>t</sub> ≥ 0.70</div>
-                <div class="gate-check" id="confidenceCheck">Waiting · below threshold</div>
-              </div>
-              <div class="gate">
-                <div class="gate-line"><span class="gate-name">Stability</span><span class="gate-value" id="runValue">run = 1</span></div>
-                <div class="stability-dots" id="stabilityDots"><i></i><i></i><i></i></div>
-                <div class="threshold">Required: run ≥ max(3, ⌈2 × changes⌉)</div>
-                <div class="gate-check" id="stabilityCheck">Waiting · 1 of 3 steps</div>
-              </div>
-              <div class="verdict" id="verdict"><small>CVEE · global decision</small><strong id="verdictTitle">Keep decoding</strong><p id="verdictText">The candidate is visible, but confidence and stability have not both passed.</p></div>
-            </div>
-          </div>
-        </div>
-        <p class="model-note" id="demoAnnouncement" role="status" aria-live="polite"></p>
+      <div class="core-card bad">
+        <div class="core-k">Stability only · GSM8K · LLaDA</div>
+        <div class="core-num">66.0 → 33.0<small> %</small></div>
+        <div class="core-lbl">Unchanged is not the same as settled.</div>
+        <p>Stopping once the extracted answer has stayed the same for a few steps ends after 24.5 of 256 steps on average, and accuracy halves.</p>
       </div>
-    </section>
+    </div>
+    <p class="also">Requiring both keeps full-decoding accuracy on GSM8K for both backbones, at the cost of waiting nearly the whole schedule — which is why the reasoning speedup has to come from CCTC.</p>
+  </div>
 
-    <section id="method">
-      <div class="wrap">
-        <div class="section-head">
-          <div class="section-num">03</div>
-          <div><div class="eyebrow">Method</div><h2>One framework, two purpose-built controls.</h2><p class="section-deck">C⁴ is training-free and uses one frozen numerical configuration across every task and both backbones.</p></div>
-        </div>
-        <div class="method-grid">
-          <article class="method-card cvee">
-            <div class="method-code">CVEE</div>
-            <h3>Confidence-Verified Early Exit</h3>
-            <div class="question">Decides when the entire sequence may stop.</div>
-            <p>The answer span is re-extracted at every step. Termination is allowed only after its token confidence and sustained argmax stability pass together.</p>
-            <ul><li>Tracks the candidate within a task-format search region</li><li>Pauses when no valid candidate exists</li><li>Raises the stability requirement as answer changes accumulate</li></ul>
-          </article>
-          <article class="method-card cctc">
-            <div class="method-code">CCTC</div>
-            <h3>Commit-Core-Then-Confirm</h3>
-            <div class="question">Decides where additional tokens may commit.</div>
-            <p>A boundary-anchored core commits immediately. Ready positions beyond the core are deferred and confirmed one step later, preserving parallel prediction.</p>
-            <ul><li>Applies to every block, including the answer block</li><li>Adds no extra forward pass</li><li>Prevents scattered confidence spikes from dictating order</li></ul>
-          </article>
-        </div>
-        <figure class="figure">
-          <div class="figure-frame"><img src="static/images/overview.svg" width="760" height="264" loading="lazy" alt="C4 overview: CCTC commits a local core and confirms deferred positions; CVEE checks answer confidence and stability before global exit"></div>
-          <figcaption><b>Where to commit, when to stop.</b> CCTC controls local token commitment; CVEE makes the separate decision to end the sequence.</figcaption>
-        </figure>
-        <div class="difference">
-          <div class="difference-head">
-            <div><div class="eyebrow">Why C⁴ stands out</div><h3>More than another confidence threshold.</h3></div>
-            <p>Each design choice addresses a failure mode observed when local sampling and global exit are treated independently.</p>
-          </div>
-          <div class="difference-grid">
-            <article class="difference-item"><span class="index">01 · JOINT</span><h4>Co-designed controls</h4><p>Local commits can distort the evidence used by a global exit rule. C⁴ designs both decisions together.</p></article>
-            <article class="difference-item"><span class="index">02 · ANSWER-AWARE</span><h4>Tests what gets graded</h4><p>CVEE re-extracts the current candidate instead of trusting a fixed tail region or decoding clock.</p></article>
-            <article class="difference-item"><span class="index">03 · NO EXTRA PASS</span><h4>No extra model pass</h4><p>CCTC reuses the next scheduled denoising step to confirm deferred positions—no separate verifier forward.</p></article>
-            <article class="difference-item"><span class="index">04 · TRANSFER</span><h4>One setting, 24 evaluations</h4><p>CVEE is calibrated once on LLaDA; CCTC is fixed a priori. Both stay unchanged across every task and on Dream.</p></article>
-          </div>
-        </div>
-        <div class="composition-proof">
-          <div class="eyebrow">Why co-design matters</div>
-          <h3>Adding an exit gate to an independent sampler can backfire.</h3>
-          <p>WINO changes the trajectory that CVEE later evaluates. The same composition saves substantial work on short answers, but its evidence becomes unreliable on long reasoning unless the exit rule is made so conservative that most of the extra benefit disappears.</p>
-          <div class="composition-grid">
-            <article class="composition-card">
-              <h4>MMLU <span>LLaDA · accuracy · avg. steps</span></h4>
-              <div class="composition-row base"><span>WINO</span><div class="composition-track"><i style="--w:100%"></i></div><b>61.0% · 16.8</b></div>
-              <div class="composition-row added"><span>WINO + CVEE</span><div class="composition-track"><i style="--w:24.4%"></i></div><b>61.5% · 4.1</b></div>
-              <div class="composition-verdict">✓ Short answer: 76% of WINO's remaining steps removed.</div>
-            </article>
-            <article class="composition-card">
-              <h4>GSM8K <span>LLaDA · accuracy · avg. steps</span></h4>
-              <div class="composition-row base"><span>WINO</span><div class="composition-track"><i style="--w:100%"></i></div><b>72.0% · 49.2</b></div>
-              <div class="composition-row added"><span>+ CVEE</span><div class="composition-track"><i style="--w:88.6%"></i></div><b>36.0% · 43.6</b></div>
-              <div class="composition-row conservative"><span>Conservative</span><div class="composition-track"><i style="--w:98.6%"></i></div><b>70.0% · 48.5</b></div>
-              <div class="composition-verdict">! Long reasoning: recovering most accuracy removes nearly all extra saving.</div>
-            </article>
-          </div>
-        </div>
-        <figure class="figure">
-          <div class="figure-frame"><img src="static/images/cctc-compare.png" width="3223" height="914" loading="lazy" alt="Comparison of confidence-only commitment with CCTC core-then-confirm"></div>
-          <figcaption><b>Structure before speed.</b> CCTC restores an autoregressive-style freezing order inside a parallel block: commit the anchored core first, then confirm deferred positions.</figcaption>
-        </figure>
-        <figure class="figure">
-          <div class="figure-frame"><img src="static/images/cvee-trace.png" width="4948" height="1823" loading="lazy" alt="CVEE and Prophet trigger timing against answer stabilization"></div>
-          <figcaption><b>Track the answer trajectory.</b> CVEE exits early when short answers settle, yet waits on long-reasoning trajectories whose answers are still changing.</figcaption>
-        </figure>
-      </div>
-    </section>
+  <div class="finding">
+    <div class="f-k">Composition</div>
+    <h3>Bolting an exit gate onto another sampler is not free.</h3>
+    <p>We keep WINO's local update rule and use CVEE only to stop (LLaDA). Where answers settle early, CVEE removes another 70–76% of WINO's steps at unchanged accuracy. On reasoning and code, the same setting stops too soon; a more conservative setting recovers the accuracy but also nearly all of the steps.</p>
+    <div class="table-wrap">
+      <table class="plain">
+        <thead><tr><th>Task</th><th colspan="2">WINO</th><th colspan="2">+ CVEE</th><th colspan="2">Conservative CVEE</th></tr>
+        <tr class="sub-h"><th></th><th>Acc</th><th>Steps</th><th>Acc</th><th>Steps</th><th>Acc</th><th>Steps</th></tr></thead>
+        <tbody>
+          <tr><td>MMLU</td><td>61.0</td><td>16.8</td><td>61.5</td><td class="good">4.1</td><td>–</td><td>–</td></tr>
+          <tr><td>HellaSwag</td><td>73.0</td><td>12.9</td><td>73.0</td><td class="good">3.9</td><td>–</td><td>–</td></tr>
+          <tr><td>GSM8K</td><td>72.0</td><td>49.2</td><td class="bad">36.0</td><td>43.6</td><td>70.0</td><td>48.5</td></tr>
+          <tr><td>SVAMP</td><td>85.0</td><td>45.6</td><td class="bad">62.0</td><td>41.7</td><td>83.0</td><td>45.1</td></tr>
+          <tr><td>HumanEval</td><td>37.8</td><td>54.2</td><td class="bad">14.6</td><td>29.7</td><td>36.6</td><td>50.1</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">The lesson is that local sampling shapes the trajectory the stop rule reads, so the two have to be designed together. It also cuts the other way: on LLaDA GSM8K, WINO alone beats C<sup>4</sup> in both accuracy (72.0 vs 64.0) and speed (4.03× vs 3.55×); when early-exit opportunities are scarce, the strongest local sampler can win.</p>
+  </div>
+</section>
 
-    <section id="case-study">
-      <div class="wrap">
-        <div class="section-head">
-          <div class="section-num">04</div>
-          <div><div class="eyebrow">Decoding in motion</div><h2>See the trajectories, not just the totals.</h2><p class="section-deck">A shared HumanEval prompt reveals how four decoders progressively turn a masked canvas into executable code—and why an early finish only matters when the program is correct.</p></div>
-        </div>
-        <div class="case-intro">
-          <article class="case-prompt">
-            <span class="tag">HumanEval · sample 068</span>
-            <h3>Implement <code>unique(l)</code></h3>
-            <code>Return the sorted unique elements of a list.</code>
-            <p>C⁴, WINO, and SlowFast reach a correct program. Prophet terminates with an incorrect result despite using the longest wall-clock time in this example.</p>
-          </article>
-          <div class="case-summary" aria-label="HumanEval sample outcomes">
-            <div class="case-metric featured"><small>C⁴</small><div><strong>2.05 s</strong><span>✓ correct program</span></div></div>
-            <div class="case-metric"><small>SlowFast</small><div><strong>1.70 s</strong><span class="ok">✓ correct</span></div></div>
-            <div class="case-metric"><small>WINO</small><div><strong>5.44 s</strong><span class="ok">✓ correct</span></div></div>
-            <div class="case-metric"><small>Prophet</small><div><strong>12.07 s</strong><span class="bad">× incorrect</span></div></div>
-          </div>
-        </div>
-        <div class="animation-shell">
-          <div class="animation-bar">
-            <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
-            <div class="animation-title">Parallel decoding trajectory · four methods · synchronized view</div>
-            <div class="animation-status" id="animationStatus">Ready to play</div>
-          </div>
-          <video class="trajectory-video" id="trajectoryVideo" controls playsinline preload="none" poster="static/images/humaneval-poster.jpg" aria-label="HumanEval decoding comparison: Prophet, WINO, SlowFast and C4" aria-describedby="trajectoryDescription">
-            <source src="static/animations/humaneval_idx068.mp4" type="video/mp4">
-            Your browser cannot play this video. <a href="static/animations/humaneval_idx068.gif">View the original GIF</a>.
-          </video>
-          <div class="animation-foot">
-            <p id="trajectoryDescription"><b>Pause, scrub, or go full screen to inspect the code.</b> Panel timers show model runtime; the video playback clock does not.</p>
-            <div class="media-actions"><button class="replay-button" id="replayTrajectory" type="button">↻ Replay</button><a href="static/animations/humaneval_idx068.gif" target="_blank" rel="noopener">Original GIF ↗</a></div>
-          </div>
-        </div>
-        <p class="model-note">One illustrative sample, not an aggregate benchmark. SlowFast is the fastest correct decoder in this example; C⁴ finishes correctly in 2.05 s.</p>
-      </div>
-    </section>
+<section id="video">
+  <h2 class="sec">Video</h2>
+  <div class="teaser"><video id="promo" controls preload="metadata" playsinline poster="static/video/c4_promo_poster.jpg"><source src="static/video/c4_promo.mp4" type="video/mp4"></video></div>
+  <p class="note center">Every decoding frame in the video is rendered from the same recorded runs as the replay above.</p>
+</section>
 
-    <section id="results">
-      <div class="wrap">
-        <div class="section-head">
-          <div class="section-num">05</div>
-          <div><div class="eyebrow">Results</div><h2>Complementary gains across regimes.</h2><p class="section-deck">CVEE removes the tail after short answers settle. CCTC saves work inside blocks that must still execute for reasoning and code.</p></div>
-        </div>
-        <div class="result-band">
-          <div class="result-chip"><b>18.66×</b><span>Wall-clock speedup<br>WinoGrande · LLaDA<br>75.5% accuracy for both</span></div>
-          <div class="result-chip"><b>4.8 / 64</b><span>Average decoding steps<br>MMLU · LLaDA<br>16.16× speedup</span></div>
-          <div class="result-chip"><b>54.5 / 256</b><span>Average decoding steps<br>GSM8K · Dream<br>85.0% accuracy for both</span></div>
-          <div class="result-chip"><b>39.4 / 384</b><span>Average decoding steps<br>HumanEval · LLaDA<br>42.1% vs. 40.2% baseline</span></div>
-        </div>
-
-        <div class="evidence-block">
-          <div class="evidence-head">
-            <div><div class="eyebrow">Reliability across the full evaluation</div><h3>No task–model setting drops by more than two accuracy points.</h3></div>
-            <div class="evidence-score"><strong>0 / 24</strong><span>drops greater than 2 points</span></div>
-          </div>
-          <div class="reliability-legend" aria-label="Matrix color legend"><span><i class="gain"></i>Accuracy gain</span><span><i class="stable"></i>No change</span><span><i class="watch"></i>Small drop, at most 2 points</span></div>
-          <div class="reliability-groups" aria-label="Speedup and accuracy change across twelve tasks and two backbones">
-            <section class="matrix-group">
-              <div class="matrix-title"><strong>Short answer</strong><span>5 tasks · 64-step budget</span></div>
-              <div class="matrix-head"><span>Task</span><span>LLaDA</span><span>Dream</span></div>
-              <div class="matrix-row"><span class="matrix-task">MMLU</span><span class="matrix-cell stable"><b>16.16×</b><small>Δacc +0.0</small></span><span class="matrix-cell watch"><b>13.82×</b><small>Δacc −1.5</small></span></div>
-              <div class="matrix-row"><span class="matrix-task">ARC-C</span><span class="matrix-cell stable"><b>14.28×</b><small>Δacc +0.0</small></span><span class="matrix-cell gain"><b>17.37×</b><small>Δacc +1.0</small></span></div>
-              <div class="matrix-row"><span class="matrix-task">HellaSwag</span><span class="matrix-cell stable"><b>16.72×</b><small>Δacc +0.0</small></span><span class="matrix-cell stable"><b>13.46×</b><small>Δacc +0.0</small></span></div>
-              <div class="matrix-row"><span class="matrix-task">WinoGrande</span><span class="matrix-cell stable"><b>18.66×</b><small>Δacc +0.0</small></span><span class="matrix-cell stable"><b>15.83×</b><small>Δacc +0.0</small></span></div>
-              <div class="matrix-row"><span class="matrix-task">PIQA</span><span class="matrix-cell gain"><b>15.52×</b><small>Δacc +0.5</small></span><span class="matrix-cell gain"><b>17.69×</b><small>Δacc +0.5</small></span></div>
-            </section>
-            <section class="matrix-group">
-              <div class="matrix-title"><strong>Long reasoning</strong><span>5 tasks · 256-step budget</span></div>
-              <div class="matrix-head"><span>Task</span><span>LLaDA</span><span>Dream</span></div>
-              <div class="matrix-row"><span class="matrix-task">GSM8K</span><span class="matrix-cell watch"><b>3.55×</b><small>Δacc −2.0</small></span><span class="matrix-cell stable"><b>4.82×</b><small>Δacc +0.0</small></span></div>
-              <div class="matrix-row"><span class="matrix-task">MATH</span><span class="matrix-cell gain"><b>2.61×</b><small>Δacc +1.0</small></span><span class="matrix-cell stable"><b>2.76×</b><small>Δacc +0.0</small></span></div>
-              <div class="matrix-row"><span class="matrix-task">SVAMP</span><span class="matrix-cell stable"><b>4.28×</b><small>Δacc +0.0</small></span><span class="matrix-cell watch"><b>5.29×</b><small>Δacc −1.0</small></span></div>
-              <div class="matrix-row"><span class="matrix-task">ASDiv</span><span class="matrix-cell gain"><b>4.48×</b><small>Δacc +3.0</small></span><span class="matrix-cell watch"><b>6.32×</b><small>Δacc −2.0</small></span></div>
-              <div class="matrix-row"><span class="matrix-task">GSM-Hard</span><span class="matrix-cell gain"><b>3.59×</b><small>Δacc +2.0</small></span><span class="matrix-cell gain"><b>3.98×</b><small>Δacc +3.0</small></span></div>
-            </section>
-            <section class="matrix-group code">
-              <div class="matrix-title"><strong>Code generation</strong><span>2 tasks · 384-step budget · execution graded</span></div>
-              <div class="matrix-head"><span>Task</span><span>LLaDA</span><span>Dream</span></div>
-              <div class="matrix-row"><span class="matrix-task">HumanEval</span><span class="matrix-cell gain"><b>8.69×</b><small>Δacc +1.8</small></span><span class="matrix-cell watch"><b>10.04×</b><small>Δacc −1.8</small></span></div>
-              <div class="matrix-row"><span class="matrix-task">MBPP</span><span class="matrix-cell stable"><b>11.11×</b><small>Δacc +0.0</small></span><span class="matrix-cell stable"><b>13.42×</b><small>Δacc +0.0</small></span></div>
-            </section>
-          </div>
-          <p class="model-note">Each cell shows measured decoding speedup and Δacc in percentage points, as reported in the paper; rounded accuracies may not subtract to the reported delta. These are observed benchmark differences, not statistical guarantees. The 2-point boundary is a reporting marker, not a calibration target.</p>
-        </div>
-
-        <div class="evidence-block">
-          <div class="evidence-head"><div><div class="eyebrow">Why both gates are necessary</div><h3>A fast trigger is not useful if it freezes the wrong answer.</h3></div><p>The LLaDA component ablation exposes two different failure modes. Confidence alone has no temporal evidence; a persistent answer alone need not be a reliable one.</p></div>
-          <div class="gate-proof">
-            <article class="proof-card risk"><span class="proof-label">Confidence only · HumanEval</span><h4>Confident, but catastrophically early</h4><div class="proof-metric">40.2 → 4.9%</div><p>Accuracy collapses even though the decoder uses only 9.7 of 384 steps.</p></article>
-            <article class="proof-card risk"><span class="proof-label">Stability only · GSM8K</span><h4>Stable does not mean settled</h4><div class="proof-metric">66.0 → 33.0%</div><p>Accuracy halves at 24.5 of 256 steps when temporal persistence is used alone.</p></article>
-            <article class="proof-card success"><span class="proof-label">Joint CVEE + local CCTC</span><h4>Wait globally, accelerate locally</h4><div class="proof-metric">256 → 62.5</div><p>On GSM8K, joint CVEE preserves baseline accuracy but removes almost no steps alone; CCTC then removes work inside blocks that still have to run. Final C⁴ accuracy is 64.0% vs. 66.0%.</p></article>
-          </div>
-        </div>
-
-        <div class="evidence-block">
-          <div class="evidence-head"><div><div class="eyebrow">Complementary sources of saving</div><h3>Different regimes need different controls.</h3></div><p>LLaDA component ablation, shown as average steps. CVEE removes the global tail; CCTC reduces local work inside blocks that remain necessary.</p></div>
-          <div class="regime-grid">
-            <article class="regime-card"><h4>MMLU</h4><p>Short answer · 64-step budget</p><div class="step-bar-row baseline"><span>Baseline</span><div class="step-track"><i style="--w:100%"></i></div><b>64.0</b></div><div class="step-bar-row cvee"><span>CVEE</span><div class="step-track"><i style="--w:10.9%"></i></div><b>7.0</b></div><div class="step-bar-row cctc"><span>+ CCTC*</span><div class="step-track"><i style="--w:7.8%"></i></div><b>5.0</b></div><div class="step-bar-row full"><span>Full C⁴</span><div class="step-track"><i style="--w:7.5%"></i></div><b>4.8</b></div><div class="regime-takeaway">CVEE removes most of the trajectory.</div></article>
-            <article class="regime-card"><h4>GSM8K</h4><p>Long reasoning · 256-step budget</p><div class="step-bar-row baseline"><span>Baseline</span><div class="step-track"><i style="--w:100%"></i></div><b>256.0</b></div><div class="step-bar-row cvee"><span>CVEE</span><div class="step-track"><i style="--w:97.7%"></i></div><b>250.0</b></div><div class="step-bar-row cctc"><span>+ CCTC*</span><div class="step-track"><i style="--w:32.8%"></i></div><b>83.9</b></div><div class="step-bar-row full"><span>Full C⁴</span><div class="step-track"><i style="--w:24.4%"></i></div><b>62.5</b></div><div class="regime-takeaway">CCTC dominates when reasoning settles late.</div></article>
-            <article class="regime-card"><h4>HumanEval</h4><p>Whole-program answer · 384-step budget</p><div class="step-bar-row baseline"><span>Baseline</span><div class="step-track"><i style="--w:100%"></i></div><b>384.0</b></div><div class="step-bar-row cvee"><span>CVEE</span><div class="step-track"><i style="--w:55.3%"></i></div><b>212.4</b></div><div class="step-bar-row cctc"><span>+ CCTC*</span><div class="step-track"><i style="--w:12.7%"></i></div><b>48.8</b></div><div class="step-bar-row full"><span>Full C⁴</span><div class="step-track"><i style="--w:10.3%"></i></div><b>39.4</b></div><div class="regime-takeaway">Local acceleration supplies most of the savings.</div></article>
-          </div>
-          <p class="model-note">* CVEE stays enabled: “+ CCTC” adds core-then-confirm on earlier blocks; full C⁴ also accelerates the final block. Bars are normalized within each task. See the paper for each variant’s accuracy.</p>
-          <div class="scaling-strip">
-            <div><h4>Longer budgets expose more removable slack.</h4><p>LLaDA speedup vs. full decoding at each matching length—not an increase in absolute throughput.</p></div>
-            <div class="scale-series" aria-label="MMLU speedup by generation length"><span><small>MMLU · L16</small><b>3.83×</b></span><i>→</i><span><small>L32</small><b>7.37×</b></span><i>→</i><span><small>L64</small><b>16.16×</b></span></div>
-            <div class="scale-series" aria-label="GSM8K speedup by generation length"><span><small>GSM8K · L128</small><b>2.51×</b></span><i>→</i><span><small>L256</small><b>3.55×</b></span><i>→</i><span><small>L512</small><b>5.84×</b></span></div>
-          </div>
-        </div>
-        <p class="table-hint" id="tableHint">Selected results below. On smaller screens, scroll the table horizontally to compare all columns.</p>
-        <div class="result-table-wrap" tabindex="0" role="region" aria-label="Selected benchmark results" aria-describedby="tableHint">
-          <table>
-            <caption class="sr-only">Selected C4 results compared with full decoding. Accuracy is a percentage; speedup is measured wall-clock time.</caption>
-            <thead><tr><th scope="col">Regime</th><th scope="col">Representative task</th><th scope="col">Backbone</th><th scope="col">Baseline acc. (%)</th><th scope="col">C⁴ acc. (%)</th><th scope="col">Step saving</th><th scope="col">Speedup</th></tr></thead>
-            <tbody>
-              <tr><td><strong>Short answer</strong></td><td>WinoGrande</td><td>LLaDA-8B</td><td>75.5</td><td>75.5</td><td>94.6%</td><td><strong>18.66×</strong></td></tr>
-              <tr><td><strong>Long reasoning</strong></td><td>GSM8K</td><td>Dream-7B</td><td>85.0</td><td>85.0</td><td>78.7%</td><td><strong>4.82×</strong></td></tr>
-              <tr><td><strong>Code generation</strong></td><td>HumanEval</td><td>LLaDA-8B</td><td>40.2</td><td>42.1</td><td>89.7%</td><td><strong>8.69×</strong></td></tr>
-              <tr><td><strong>Code generation</strong></td><td>MBPP</td><td>Dream-7B</td><td>56.0</td><td>56.0</td><td>93.4%</td><td><strong>13.42×</strong></td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="model-note">Accuracy is reported as a percentage. WinoGrande uses 200 examples with LLaDA-8B-Instruct. Speedups measure the complete decoding loop, relative to full decoding with the same model, task, and generation length—not model loading or network latency. The paper reports bf16 greedy decoding on a single RTX 4090. <a href="static/pdf/paper.pdf">See the paper for all 24 task–model settings and sample sizes ↗</a></p>
-        <aside class="scope-note"><strong>Where this applies.</strong> C⁴ targets tasks with a clearly extractable answer. Comparable task accuracy does not imply identical generated text: early-exit filling can reduce the quality of surrounding text. See the paper’s limitations for open-ended generation and multiple answer units.</aside>
-        <div class="split-figures">
-          <figure class="figure"><div class="figure-frame"><img src="static/images/block-accel.png" width="2522" height="679" loading="lazy" alt="Per-block percentage of scheduled steps used by eight decoding methods on MMLU, GSM8K, and HumanEval"></div><figcaption><b>Where the steps go.</b> Per-block step usage across decoding methods: C⁴ leaves little tail work on short answers and reduces local work across the longer reasoning and code trajectories.</figcaption></figure>
-          <figure class="figure"><div class="figure-frame"><img src="static/images/teaser.png" width="1984" height="386" loading="lazy" alt="HumanEval comparison of total steps, accuracy, throughput, and speedup across decoding methods"></div><figcaption><b>Speed is useful only when the program still passes.</b> On LLaDA HumanEval, C⁴ uses about 10% of the decoding steps, reaches 42.1% accuracy versus 40.2% for full decoding, and delivers an 8.69× measured speedup. Faster peers in this panel incur substantial accuracy losses.</figcaption></figure>
-        </div>
-      </div>
-    </section>
-
-    <section id="paper">
-      <div class="wrap">
-        <div class="section-head">
-          <div class="section-num">06</div>
-          <div><div class="eyebrow">Paper</div><h2>Summary & citation</h2><p class="section-deck">Full definitions, evaluation protocol, ablations, and limitations are available in the paper.</p></div>
-        </div>
-        <div class="abstract-box">
-          <p>Diffusion language models expose a provisional full-sequence prediction at every denoising step, and on many tasks the answer stabilizes well before decoding finishes. This creates two opportunities to reduce computation: leaving a block early and terminating the entire sequence early. We present <strong>C⁴</strong>, a training-free framework that coordinates these distinct control points. <strong>Confidence-Verified Early Exit (CVEE)</strong> decides when decoding may stop by re-extracting the current answer and requiring both confidence and temporal stability. <strong>Commit-Core-Then-Confirm (CCTC)</strong> decides which positions may commit within a block by freezing a boundary-anchored core and confirming deferred positions one step later. Across 12 zero-shot tasks with LLaDA and Dream, one fixed configuration removes 64–95% of decoding steps and yields 2.6×–18.6× measured end-to-end speedups while maintaining accuracy comparable to full decoding.</p>
-        </div>
-        <p class="model-note">Version note: results on this page follow the <a href="static/pdf/paper.pdf">revised manuscript PDF</a>. The <a href="https://arxiv.org/abs/2607.28166">arXiv record</a> currently links an earlier version with a different reported speedup range.</p>
-        <div class="citation-box">
-          <button class="copy-button" id="copyCitation" type="button">Copy BibTeX</button>
-          <pre id="citation">@article{lee2026c4,
-  title   = {Commit Locally, Exit Globally: Coordinating Adaptive
-             Sampling and Early Exit in Diffusion Language Models},
-  author  = {Lee, Chia-Ming and Liu, Shao-Kai and Chang, Ming-Ching
-             and Li, Xin and Liu, Yu-Lun and Hsu, Chih-Chung},
+<section id="bibtex">
+  <h2 class="sec">BibTeX</h2>
+  <div class="bib">
+    <button class="copy" type="button" data-copy="bib-code">Copy</button>
+<pre id="bib-code">@article{lee2026c4,
+  title   = {Commit Locally, Exit Globally: Coordinating Adaptive Sampling and Early Exit in Diffusion Language Models},
+  author  = {Lee, Chia-Ming and Liu, Shao-Kai and Chang, Ming-Ching and Li, Xin and Liu, Yu-Lun and Hsu, Chih-Chung},
   journal = {arXiv preprint arXiv:2607.28166},
   year    = {2026}
 }</pre>
-        </div>
-        <p class="citation-status" id="citationStatus" role="status"></p>
-      </div>
-    </section>
-  </main>
+  </div>
+</section>
 
-  <footer>
-    <div class="wrap footer-inner"><span>C⁴ · Commit Locally, Exit Globally</span><span><a href="static/pdf/paper.pdf">Paper</a> · <a href="https://github.com/ming053l/C4-dLLM">Code</a> · <a href="#top">Back to top ↑</a></span></div>
-  </footer>
+</main>
 
-  <dialog class="lightbox" id="lightbox" aria-labelledby="figureTitle" aria-describedby="figureCaption">
-    <div class="lightbox-toolbar"><h2 id="figureTitle">Paper figure</h2><div class="lightbox-actions"><button id="zoomFigure" type="button" aria-pressed="false">Zoom in</button><a id="originalFigure" href="static/images/overview.svg" target="_blank" rel="noopener">Original ↗</a><button id="closeFigure" type="button" autofocus>Close ×</button></div></div>
-    <div class="lightbox-viewport" tabindex="0" aria-label="Figure image; scroll to inspect when zoomed"><img alt=""></div>
-    <p class="lightbox-caption" id="figureCaption"></p>
-  </dialog>
+<footer class="wrap foot">
+  <p>Page layout follows the <a href="https://ming053l.github.io/Doctor-Trigger/" target="_blank" rel="noopener">Doctor Trigger</a> and <a href="https://ming053l.github.io/FlashReFocus/" target="_blank" rel="noopener">FlashReFocus</a> project pages. Numbers are transcribed from the paper; the paper is the source of record.</p>
+</footer>
 
-  <script>
-    (() => {
-      const states = [
-        {answer:'538', confidence:.41, committed:3, title:'Keep decoding', text:'The provisional answer is visible, but neither global condition has passed.'},
-        {answer:'538', confidence:.56, committed:4, title:'Local progress', text:'Another local position commits. The same answer has now appeared for two consecutive steps.'},
-        {answer:'540', confidence:.62, committed:5, title:'Candidate changed', text:'The answer changes from 538 to 540. Its consecutive stability count resets to one.'},
-        {answer:'540', confidence:.68, committed:6, title:'Confirming', text:'The new answer persists for a second step. Local commitment continues while the global gate waits.'},
-        {answer:'540', confidence:.69, committed:7, title:'Stable, not confident', text:'Three matching steps pass the stability check, but confidence is still below 0.70. Decoding continues.'},
-        {answer:'540', confidence:.78, committed:8, title:'Fill + stop', text:'Both checks now pass. CVEE fills the remaining masked positions from the current prediction and stops.'}
-      ];
-      states.forEach((s, i) => {
-        const previous = states[i - 1];
-        const changed = previous && previous.answer !== s.answer;
-        s.run = previous && !changed ? previous.run + 1 : 1;
-        s.changes = (previous ? previous.changes : 0) + (changed ? 1 : 0);
-        s.required = Math.max(3, Math.ceil(2 * s.changes));
-        s.ready = s.confidence >= .70 && s.run >= s.required;
-      });
-      const tokens = document.getElementById('tokens');
-      for (let i=0; i<12; i++) {
-        const el = document.createElement('span');
-        el.className = 'token'; el.setAttribute('aria-hidden', 'true');
-        tokens.appendChild(el);
-      }
-      const scrubber = document.getElementById('scrubber');
-      const play = document.getElementById('playDemo');
-      const playText = play.querySelector('span');
-      let timer = null;
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Figure"><button class="lightbox-close" type="button" aria-label="Close">×</button><img alt=""></div>
 
-      function render(index, announce = false) {
-        const s = states[index];
-        document.getElementById('stepCounter').textContent = `Step ${index + 1} / ${states.length}`;
-        document.getElementById('currentAnswer').textContent = s.answer;
-        document.getElementById('commitLabel').textContent = s.ready ? `${s.committed} committed + ${12 - s.committed} exit-filled` : `${s.committed} / 12 committed`;
-        document.getElementById('confidenceValue').textContent = s.confidence.toFixed(2);
-        document.getElementById('confidenceBar').style.width = `${s.confidence * 100}%`;
-        document.getElementById('runValue').textContent = `${s.run} / ${s.required} steps`;
-        const confidenceCheck = document.getElementById('confidenceCheck');
-        const stabilityCheck = document.getElementById('stabilityCheck');
-        confidenceCheck.textContent = s.confidence >= .70 ? '✓ Passed · at least 0.70' : 'Waiting · below 0.70';
-        confidenceCheck.classList.toggle('pass', s.confidence >= .70);
-        stabilityCheck.textContent = s.run >= s.required ? `✓ Passed · ${s.changes} answer change` : `Waiting · ${s.required - s.run} more matching step${s.required - s.run === 1 ? '' : 's'}`;
-        stabilityCheck.classList.toggle('pass', s.run >= s.required);
-        document.querySelectorAll('#stabilityDots i').forEach((d,i) => d.classList.toggle('on', i < s.run));
-        document.querySelectorAll('.candidate').forEach((c,i) => {
-          const priorIndex = index - 2 + i;
-          const prior = states[priorIndex];
-          c.classList.toggle('past', i < 2 && !!prior);
-          c.querySelector('strong').textContent = prior ? prior.answer : '—';
-          c.querySelector('span').textContent = prior ? `Step ${priorIndex + 1} · run ${prior.run}` : 'No history yet';
-        });
-        tokens.querySelectorAll('.token').forEach((t,i) => {
-          t.className = 'token';
-          t.textContent = '·';
-          if (i < s.committed) {
-            t.classList.add(i < 3 ? 'core' : 'confirmed');
-            t.textContent = i < 3 ? 'C' : '✓';
-          } else if (s.ready) {
-            t.classList.add('done');
-            t.textContent = 'F';
-          }
-          if (i >= 8 && i <= 10) {
-            t.classList.add(s.ready ? 'done' : 'answer');
-            t.textContent = s.answer[i - 8];
-          }
-        });
-        tokens.setAttribute('aria-label', `${s.committed} of 12 tokens committed locally. ${s.ready ? 'Remaining masks filled at exit.' : 'Answer digits are provisional, not committed.'}`);
-        const verdict = document.getElementById('verdict');
-        verdict.classList.toggle('ready', !!s.ready);
-        document.getElementById('verdictTitle').textContent = s.title;
-        document.getElementById('verdictText').textContent = s.text;
-        scrubber.value = index;
-        scrubber.setAttribute('aria-valuetext', `Step ${index + 1} of 6: answer ${s.answer}, confidence ${s.confidence.toFixed(2)}, ${s.run} matching steps. ${s.title}.`);
-        document.getElementById('previousStep').disabled = index === 0;
-        document.getElementById('nextStep').disabled = index === states.length - 1;
-        if (announce) document.getElementById('demoAnnouncement').textContent = `Step ${index + 1}: ${s.title}. ${s.text}`;
-      }
-      function stop() {
-        clearInterval(timer); timer = null;
-        const complete = +scrubber.value === states.length - 1;
-        play.firstChild.textContent = complete ? '↻ ' : '▶ ';
-        playText.textContent = complete ? 'Replay' : 'Play';
-        play.setAttribute('aria-label', complete ? 'Replay decoder walkthrough' : 'Play decoder walkthrough');
-      }
-      play.addEventListener('click', () => {
-        if (timer) { stop(); return; }
-        if (+scrubber.value === states.length - 1) render(0);
-        play.firstChild.textContent = 'Ⅱ '; playText.textContent = 'Pause';
-        play.setAttribute('aria-label', 'Pause decoder walkthrough');
-        timer = setInterval(() => {
-          const next = +scrubber.value + 1;
-          if (next >= states.length) { stop(); return; }
-          render(next, next === states.length - 1);
-          if (next === states.length - 1) stop();
-        }, 1600);
-      });
-      scrubber.addEventListener('input', e => { render(+e.target.value, true); stop(); });
-      document.getElementById('previousStep').addEventListener('click', () => { render(Math.max(0, +scrubber.value - 1), true); stop(); });
-      document.getElementById('nextStep').addEventListener('click', () => { render(Math.min(states.length - 1, +scrubber.value + 1), true); stop(); });
-      render(0);
-
-      const video = document.getElementById('trajectoryVideo');
-      const animationStatus = document.getElementById('animationStatus');
-      video.addEventListener('playing', () => { animationStatus.textContent = 'Playing'; });
-      video.addEventListener('pause', () => { animationStatus.textContent = video.ended ? 'Complete' : 'Paused'; });
-      video.addEventListener('ended', () => { animationStatus.textContent = 'Complete · replay below'; });
-      video.addEventListener('waiting', () => { animationStatus.textContent = 'Loading…'; });
-      const videoError = () => { animationStatus.textContent = 'Unavailable · use original GIF'; };
-      video.addEventListener('error', videoError);
-      video.querySelector('source').addEventListener('error', videoError);
-      document.getElementById('replayTrajectory').addEventListener('click', async () => {
-        try { video.currentTime = 0; await video.play(); }
-        catch (_) { videoError(); }
-      });
-      document.addEventListener('visibilitychange', () => { if (document.hidden) { stop(); video.pause(); } });
-
-      const progress = document.querySelector('.progress');
-      const navLinks = [...document.querySelectorAll('.nav-links a')];
-      const navToggle = document.getElementById('navToggle');
-      const navSections = document.getElementById('navSections');
-      const closeNav = () => { navSections.classList.remove('is-open'); navToggle.setAttribute('aria-expanded', 'false'); };
-      navToggle.addEventListener('click', () => {
-        const open = navSections.classList.toggle('is-open');
-        navToggle.setAttribute('aria-expanded', String(open));
-      });
-      navLinks.forEach(link => link.addEventListener('click', closeNav));
-      document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && navSections.classList.contains('is-open')) { closeNav(); navToggle.focus(); }
-      });
-      document.addEventListener('click', e => { if (!e.target.closest('.topbar')) closeNav(); });
-      matchMedia('(max-width: 840px)').addEventListener('change', closeNav);
-      const sections = navLinks.map(a => document.querySelector(a.getAttribute('href')));
-      const updateProgress = () => {
-        const h = document.documentElement.scrollHeight - innerHeight;
-        progress.style.transform = `scaleX(${h ? scrollY / h : 0})`;
-        let active = -1;
-        sections.forEach((section,i) => { if (section && section.getBoundingClientRect().top < 150) active = i; });
-        navLinks.forEach((a,i) => {
-          a.classList.toggle('active', i === active);
-          if (i === active) a.setAttribute('aria-current', 'location');
-          else a.removeAttribute('aria-current');
-        });
-      };
-      addEventListener('scroll', updateProgress, {passive:true});
-      updateProgress();
-
-      const lightbox = document.getElementById('lightbox');
-      const lightboxImg = lightbox.querySelector('img');
-      const viewport = lightbox.querySelector('.lightbox-viewport');
-      const zoom = document.getElementById('zoomFigure');
-      let figureTrigger = null;
-      let previousOverflow = '';
-      document.querySelectorAll('.figure-frame img').forEach(img => {
-        img.loading = 'lazy';
-        const figure = img.closest('figure');
-        const button = document.createElement('button');
-        button.type = 'button'; button.className = 'figure-expand';
-        button.textContent = '⤢ Expand figure';
-        button.setAttribute('aria-label', `Expand figure: ${img.alt}`);
-        button.setAttribute('aria-haspopup', 'dialog');
-        const toolbar = document.createElement('div'); toolbar.className = 'figure-tools';
-        toolbar.appendChild(button); figure.appendChild(toolbar);
-        const openFigure = () => {
-          figureTrigger = button;
-          lightboxImg.src = img.src; lightboxImg.alt = img.alt;
-          document.getElementById('figureTitle').textContent = figure.querySelector('figcaption b')?.textContent || 'Paper figure';
-          document.getElementById('figureCaption').textContent = figure.querySelector('figcaption').textContent;
-          document.getElementById('originalFigure').href = img.src;
-          viewport.classList.remove('zoomed');
-          zoom.textContent = 'Zoom in'; zoom.setAttribute('aria-pressed', 'false');
-          previousOverflow = document.body.style.overflow;
-          document.body.style.overflow = 'hidden';
-          lightbox.showModal();
-          viewport.scrollTo(0, 0);
-        };
-        img.addEventListener('click', openFigure);
-        button.addEventListener('click', openFigure);
-      });
-      zoom.addEventListener('click', () => {
-        const enlarged = viewport.classList.toggle('zoomed');
-        zoom.textContent = enlarged ? 'Fit to screen' : 'Zoom in';
-        zoom.setAttribute('aria-pressed', String(enlarged));
-      });
-      document.getElementById('closeFigure').addEventListener('click', () => lightbox.close());
-      lightbox.addEventListener('click', e => {
-        const box = lightbox.getBoundingClientRect();
-        if (e.target === lightbox && (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom)) lightbox.close();
-      });
-      lightbox.addEventListener('close', () => {
-        document.body.style.overflow = previousOverflow;
-        figureTrigger?.focus({preventScroll:true});
-      });
-
-      const copyButton = document.getElementById('copyCitation');
-      const citation = document.getElementById('citation');
-      const citationStatus = document.getElementById('citationStatus');
-      let copyTimer;
-      copyButton.addEventListener('click', async () => {
-        clearTimeout(copyTimer);
-        try {
-          await navigator.clipboard.writeText(citation.textContent);
-          copyButton.textContent = '✓ Copied';
-          citationStatus.textContent = 'BibTeX copied to clipboard.';
-        } catch (_) {
-          citation.tabIndex = 0; citation.focus({preventScroll:true});
-          const range = document.createRange(); range.selectNodeContents(citation);
-          const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
-          copyButton.textContent = 'Citation selected';
-          citationStatus.textContent = 'Clipboard access is unavailable. The citation is selected; press Ctrl+C or ⌘C to copy.';
-        }
-        copyTimer = setTimeout(() => { copyButton.textContent = 'Copy BibTeX'; }, 2400);
-      });
-    })();
-  </script>
+<script src="static/js/results.js?v=4"></script>
+<script src="static/js/replay.js?v=4"></script>
 </body>
 </html>
