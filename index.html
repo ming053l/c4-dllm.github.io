@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:ital@1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="static/css/site.css?v=4">
+<link rel="stylesheet" href="static/css/site.css?v=5">
 </head>
 <body>
 
@@ -102,6 +102,33 @@ and code generation.</p></div>
   <h2 class="sec">Method</h2>
 
   <div class="finding first">
+    <div class="f-k">Before C<sup>4</sup></div>
+    <h3>Why earlier methods fall short.</h3>
+    <p>Diffusion decoding can be sped up in two places: commit tokens faster inside a block, or stop the whole sequence early. Earlier methods do one or the other, and each breaks somewhere. Numbers below are LLaDA-8B from the paper's tables.</p>
+    <div class="prior">
+      <div class="prior-card" style="--c: var(--red)">
+        <div class="core-k">Stop early · Prophet, SchED</div>
+        <p>They stop on a schedule or a fixed confidence rule, not when the answer has settled. Short answers are fine; reasoning gets cut off while the answer is still changing.</p>
+        <div class="prior-num">66 → 38</div>
+        <div class="prior-lbl">GSM8K accuracy with Prophet; HumanEval drops 40.2 → 3.0</div>
+      </div>
+      <div class="prior-card" style="--c: #a86a10">
+        <div class="core-k">Commit faster · SlowFast, KLASS, WINO</div>
+        <p>They decide which tokens to commit, never when to stop, so every block is still decoded even after the answer is done.</p>
+        <div class="prior-num">≤ 4.3×</div>
+        <div class="prior-lbl">MMLU speedup, still using 17–29 of 64 steps (C<sup>4</sup>: 16.1×, 4.8 steps)</div>
+      </div>
+      <div class="prior-card" style="--c: var(--red)">
+        <div class="core-k">Just combine them · WINO + exit gate</div>
+        <p>The exit rule reads a trajectory the sampler has already reshaped, so a gate that works on its own stops reasoning too soon.</p>
+        <div class="prior-num">72 → 36</div>
+        <div class="prior-lbl">GSM8K accuracy, while steps only drop from 49 to 44</div>
+      </div>
+    </div>
+    <p class="note">This is the gap C<sup>4</sup> targets: one exit rule that waits for the answer itself, and local commitment designed together with it. Full comparisons are in the <a href="#results">results</a>.</p>
+  </div>
+
+  <div class="finding">
     <div class="f-k">Observation</div>
     <h3>Answers settle at very different times.</h3>
     <p>A diffusion LM shows a full provisional output at every step, so you can read off its current answer long before decoding ends.
@@ -237,7 +264,7 @@ and code generation.</p></div>
 
 <section id="video">
   <h2 class="sec">Video</h2>
-  <div class="teaser"><video id="promo" controls preload="metadata" playsinline poster="static/video/c4_promo_poster.jpg?v=2"><source src="static/video/c4_promo.mp4?v=2" type="video/mp4"></video></div>
+  <div class="teaser"><video id="promo" controls preload="metadata" playsinline poster="static/video/c4_promo_poster.jpg?v=3"><source src="static/video/c4_promo.mp4?v=3" type="video/mp4"></video></div>
   <p class="note center">Every decoding frame in the video is rendered from the same recorded runs as the replay above.</p>
 </section>
 
