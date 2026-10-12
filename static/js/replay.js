@@ -301,7 +301,8 @@
     };
     const pick = async (id) => {
       tabs.querySelectorAll("button").forEach(b => b.setAttribute("aria-selected", b.dataset.id === id));
-      doc = await load(id); range.max = doc.c4.steps; i = 0;
+      doc = await load(id); range.max = doc.c4.steps;
+      i = Math.max(0, Math.round(doc.c4.steps * 0.6) - 1);   // open mid-run, where the gates have something to show
       // start on the most informative step: the first where the answer is readable
       show();
     };

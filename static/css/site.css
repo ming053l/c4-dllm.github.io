@@ -335,3 +335,31 @@ details.more[open] summary::before { transform: rotate(90deg); }
 .prior-num { font: 800 clamp(30px, 3.6vw, 40px)/1.1 var(--display); color: var(--c); letter-spacing: -.01em; }
 .prior-lbl { font-size: 13px; color: var(--ink-3); margin-top: 4px; line-height: 1.45; }
 @media (max-width: 860px) { .prior { grid-template-columns: minmax(0, 1fr); } }
+/* overview svg (inline, so it uses the page fonts) */
+figure.ov { margin: 8px 0 22px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.ov-svg { display: block; width: 100%; height: auto; }
+/* CCTC example, native */
+.cctc { margin: 22px 0 6px; padding: 16px 18px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.cctc-row { display: grid; grid-template-columns: 74px minmax(0, 1fr); align-items: center; gap: 10px; margin-bottom: 10px; }
+.cctc-lab { font: 600 14px/1.2 var(--display); color: var(--ink-2); }
+.cks { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 5px; }
+.ck { padding: 7px 4px; border-radius: 6px; font: 500 13px/1.2 var(--mono); border: 1.5px solid transparent; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ck.old { background: #f1e2bf; color: #6d5214; }
+.ck.ck-core { background: var(--gold); color: #fff; }
+.ck.low { background: #f6dcd8; color: #a5555a; border-style: dashed; border-color: #e1a9a6; }
+.ck.def { background: repeating-linear-gradient(45deg, #f3c9c4 0 3px, #fbe9e7 3px 6px); color: #8b2a35; border-color: #e1a9a6; }
+.ck.cf { background: var(--blue-soft); color: var(--blue-strong); border-color: var(--blue); }
+.ck-sw { width: 16px; height: 12px; border-radius: 3px; display: inline-block; }
+.ck-sw.old { background: #f1e2bf; } .ck-sw.ck-core { background: var(--gold); } .ck-sw.low { background: #f6dcd8; border: 1px dashed #e1a9a6; }
+.ck-sw.def { background: repeating-linear-gradient(45deg, #f3c9c4 0 2px, #fbe9e7 2px 4px); } .ck-sw.cf { background: var(--blue-soft); border: 1px solid var(--blue); }
+.cctc-leg { justify-content: flex-start; margin-top: 4px; }
+/* single-gate failures, compact */
+.gatefail { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 14px; }
+.gatefail > div { border-left: 3px solid var(--red); padding: 4px 0 4px 12px; font-size: 14.5px; color: var(--ink-2); }
+.gatefail b { color: var(--ink); }
+.gatefail .bad { color: var(--red); font-weight: 700; font-variant-numeric: tabular-nums; }
+/* related work, FlashReFocus format */
+.related { display: grid; gap: 12px; margin: 0; padding-left: 1.2em; }
+.related a { font-weight: 500; }
+.related p { margin: 2px 0 0; font-size: 14.5px; color: var(--ink-2); }
+@media (max-width: 600px) { .gatefail { grid-template-columns: minmax(0, 1fr); } .cctc-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } .ck { font-size: 10.5px; padding: 6px 1px; } .cks { gap: 3px; } }

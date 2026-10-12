@@ -7,14 +7,14 @@
 <meta name="description" content="C⁴ is a training-free decoder for diffusion language models: it commits tokens faster inside each block and stops the whole sequence once the answer has settled. 2.6–18.6× measured decoding-loop speedup across 12 tasks on LLaDA and Dream with one frozen setting.">
 <meta property="og:title" content="C⁴: Commit Locally, Exit Globally">
 <meta property="og:description" content="Coordinating adaptive sampling and early exit in diffusion language models. Training-free, one frozen setting, 12 tasks, 2 backbones.">
-<meta property="og:image" content="https://c4-dllm.github.io/static/fig/fig_decoding.webp">
+<meta property="og:image" content="https://c4-dllm.github.io/static/video/c4_promo_poster.jpg">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="data:image/svg+xml,%3Csvg viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='32' height='32' rx='8' fill='%2312263f'/%3E%3Cpath d='M20.5 10.2A8 8 0 1 0 20.5 21.8' fill='none' stroke='%23e3b04b' stroke-width='3.2' stroke-linecap='round'/%3E%3Ccircle cx='23.6' cy='8.6' r='2.6' fill='%235b9bd5'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:ital@1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="static/css/site.css?v=5">
+<link rel="stylesheet" href="static/css/site.css?v=7">
 </head>
 <body>
 
@@ -54,16 +54,13 @@
 </div>
 
 <nav class="toc" aria-label="Sections">
-  <a href="#overview">Overview</a><a href="#method">Method</a><a href="#results">Results</a><a href="#video">Video</a><a href="#bibtex">BibTeX</a>
+  <a href="#overview">Overview</a><a href="#method">Method</a><a href="#results">Results</a><a href="#video">Video</a><a href="#related">Related</a><a href="#bibtex">BibTeX</a>
 </nav>
 
 <main class="wrap">
 
 <section id="overview">
-  <p class="lead-p"><b>C<sup>4</sup></b> speeds up diffusion language models by making two decisions separately.
-    <b>Locally</b>, inside the block being decoded, it commits confident tokens sooner, so each block finishes in fewer steps.
-    <b>Globally</b>, it watches the answer that the model currently predicts and stops the whole sequence once that answer is both confident and no longer changing.
-    It needs no training and no extra forward pass, and one frozen setting serves all 12 tasks on both LLaDA and Dream.</p>
+  <p class="lead-p"><b>C<sup>4</sup></b> speeds up diffusion language models by making two decisions separately: <b>locally</b>, it commits confident tokens sooner so each block finishes in fewer steps; <b>globally</b>, it stops the whole sequence once the answer is confident and no longer changing. No training, no extra forward pass, one frozen setting.</p>
   <div class="stats">
     <div class="stat"><div class="num">2.6–18.6<small>×</small></div><div class="lbl">measured decoding-loop speedup over full decoding</div></div>
     <div class="stat"><div class="num">64–95<small>%</small></div><div class="lbl">fewer decoding steps</div></div>
@@ -104,147 +101,118 @@ and code generation.</p></div>
   <div class="finding first">
     <div class="f-k">Before C<sup>4</sup></div>
     <h3>Why earlier methods fall short.</h3>
-    <p>Diffusion decoding can be sped up in two places: commit tokens faster inside a block, or stop the whole sequence early. Earlier methods do one or the other, and each breaks somewhere. Numbers below are LLaDA-8B from the paper's tables.</p>
+    <p>Diffusion decoding can be sped up in two places: commit tokens faster inside a block, or stop the whole sequence early. Earlier methods do one or the other, and each breaks somewhere (LLaDA-8B, paper Tables 1–2).</p>
     <div class="prior">
       <div class="prior-card" style="--c: var(--red)">
         <div class="core-k">Stop early · Prophet, SchED</div>
-        <p>They stop on a schedule or a fixed confidence rule, not when the answer has settled. Short answers are fine; reasoning gets cut off while the answer is still changing.</p>
+        <p>They stop on a schedule or a fixed confidence rule, not when the answer has settled, so reasoning is cut off while the answer is still changing.</p>
         <div class="prior-num">66 → 38</div>
-        <div class="prior-lbl">GSM8K accuracy with Prophet; HumanEval drops 40.2 → 3.0</div>
+        <div class="prior-lbl">GSM8K accuracy with Prophet; HumanEval 40.2 → 3.0</div>
       </div>
       <div class="prior-card" style="--c: #a86a10">
         <div class="core-k">Commit faster · SlowFast, KLASS, WINO</div>
-        <p>They decide which tokens to commit, never when to stop, so every block is still decoded even after the answer is done.</p>
+        <p>They decide which tokens to commit, never when to stop, so every block is still decoded after the answer is done.</p>
         <div class="prior-num">≤ 4.3×</div>
-        <div class="prior-lbl">MMLU speedup, still using 17–29 of 64 steps (C<sup>4</sup>: 16.1×, 4.8 steps)</div>
+        <div class="prior-lbl">MMLU speedup, 17–29 of 64 steps (C<sup>4</sup>: 16.1×, 4.8 steps)</div>
       </div>
       <div class="prior-card" style="--c: var(--red)">
         <div class="core-k">Just combine them · WINO + exit gate</div>
-        <p>The exit rule reads a trajectory the sampler has already reshaped, so a gate that works on its own stops reasoning too soon.</p>
+        <p>The exit rule reads a trajectory the sampler has already reshaped, and stops reasoning too soon.</p>
         <div class="prior-num">72 → 36</div>
         <div class="prior-lbl">GSM8K accuracy, while steps only drop from 49 to 44</div>
       </div>
     </div>
-    <p class="note">This is the gap C<sup>4</sup> targets: one exit rule that waits for the answer itself, and local commitment designed together with it. Full comparisons are in the <a href="#results">results</a>.</p>
   </div>
 
   <div class="finding">
     <div class="f-k">Observation</div>
-    <h3>Answers settle at very different times.</h3>
-    <p>A diffusion LM shows a full provisional output at every step, so you can read off its current answer long before decoding ends.
-      We record, on full LLaDA decodes of MMLU, GSM8K and MATH, the point after which that answer never changes again.
-      The point by which 90% of answers have settled ranges from <b>4%</b> of the decoding schedule on short-answer tasks to <b>96%</b> on long reasoning.</p>
+    <h3>The answer settles at very different times.</h3>
+    <p>A diffusion LM shows its full provisional output at every step, so the current answer can be read long before decoding ends.
+      On full LLaDA decodes, the point by which 90% of answers have stopped changing ranges from <b>4%</b> of the schedule on short-answer tasks to <b>96%</b> on long reasoning.
+      No fixed stopping point fits both, so C<sup>4</sup> stops on evidence from the answer itself and gets its speed on long outputs from faster commitment inside each block.</p>
     <div class="settle" aria-hidden="true">
       <div class="settle-track"><span class="settle-fill"></span><span class="settle-dot a" style="left:4%"></span><span class="settle-dot b" style="left:96%"></span></div>
       <div class="settle-lbl"><span><b>4%</b> short answers</span><span><b>96%</b> long reasoning</span></div>
     </div>
-    <p>A stop rule tied to decoding progress cannot fit both: wait long enough for reasoning and you waste most of the steps on short answers; stop early enough for short answers and you cut reasoning off mid-revision.
-      So C<sup>4</sup> stops on evidence from the answer itself, and gets its speed on long outputs from somewhere else: faster commitment inside each block.</p>
-    <figure>
-      <div class="frame"><img src="static/fig/fig_phase_diagram.webp" alt="Phase diagram of commit time versus stabilization time for Prophet and CVEE on MMLU, MATH and HumanEval" loading="lazy" width="1800" height="397"></div>
-      <figcaption><b>When each method stops, against when the answer settled.</b> Each faint line joins Prophet and CVEE on the same LLaDA trajectory. Points below the diagonal stopped before the final answer appeared. On MMLU both stop near stabilization; on MATH and HumanEval, Prophet often stops before the answer has settled, while CVEE waits.</figcaption>
-    </figure>
-    <details class="more">
-      <summary>Show the trajectories behind this (paper Figure 2)</summary>
-      <figure>
-        <div class="frame"><img src="static/fig/fig_cvee_trace_agg.webp" alt="Aggregate trajectories: probability the candidate is correct, confidence, run length and entropy over decoding progress for Prophet on GSM8K+MATH, CVEE on MMLU and CVEE on GSM8K+MATH" loading="lazy" width="1800" height="663"></div>
-        <figcaption><b>Stabilization timing shapes the opportunity for early exit.</b> MMLU predictions settle early, leaving much of the budget unused; GSM8K and MATH keep changing late. CVEE exits early on MMLU and waits on the reasoning tasks, while Prophet can trigger while those predictions are still changing.</figcaption>
-      </figure>
-    </details>
   </div>
 
   <div class="finding">
-    <div class="f-k">Overview</div>
-    <h3>Two decisions on one trajectory.</h3>
-    <figure>
-      <div class="frame"><img src="static/fig/fig_decoding.webp" alt="C4 overview: CCTC commits a core and confirms deferred tokens; CVEE tracks prediction, confidence and run length and exits" loading="lazy" width="1800" height="607"></div>
-      <figcaption><b>Where to commit, and when to stop.</b> CCTC uses token-level confidence to advance a boundary-anchored core and to confirm deferred predictions one step later. On the trajectory this produces, CVEE reads the current answer, its confidence and how long it has stayed the same, and exits when both conditions hold; the remaining masks are then filled in one step.</figcaption>
-    </figure>
+    <div class="f-k">How C<sup>4</sup> works</div>
+    <h3>Commit locally, exit globally.</h3>
+    <figure class="ov"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1482 500" role="img" aria-label="C4 overview: CCTC commits a core, defers and confirms tokens; CVEE tracks the answer, its confidence and run length, and exits when both pass" class="ov-svg"><defs><marker id="a" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7" fill="#54616d" /></marker><pattern id="h" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="#fff" /><path d="M-1 1 L1 -1 M0 6 L6 0 M5 7 L7 5" stroke="#7d99b3" stroke-width="1.2" /></pattern></defs><rect width="1482" height="500" fill="white" /><style>text{font-family:"Google Sans","Noto Sans",system-ui,sans-serif;fill:#24364b}.h{font-size:26px;font-weight:700}.b{font-size:22px}.s{font-size:19px}.n{font-size:28px;font-weight:500}</style><rect x="12" y="55" width="708" height="359" rx="12" fill="#fcfaf5" stroke="#dac8a7" stroke-width="1.1" /><rect x="828.0" y="55" width="642" height="359" rx="12" fill="#f5f8fc" stroke="#b6c9d8" stroke-width="1.1" /><rect x="28" y="13" width="680" height="55" rx="5" fill="#f0e3c9" stroke="#dac8a7" stroke-width="1.1" /><text x="47" y="49" class="h" style="fill:#8d652b">Commit-Core-Then-Confirm (CCTC)</text><rect x="844.0" y="13" width="610" height="55" rx="5" fill="#e0eaf4" stroke="#b6c9d8" stroke-width="1.1" /><text x="863.0" y="49" class="h" style="fill:#285d85">Confidence-Verified Early Exit (CVEE)</text><text x="40" y="101" class="b">Token-level confidence for local commitment</text><rect x="34" y="124" width="664" height="74" rx="5" fill="white" stroke="#e0e3e6" stroke-width="1.1" /><text x="48" y="167" class="s">t</text><rect x="113" y="152" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="113" y="134" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="145" y="152" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="145" y="134" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="177" y="152" width="30" height="30" rx="0" fill="#c79142" stroke="#9ba8b2" stroke-width="1.1" /><rect x="177" y="134" width="30" height="10" rx="0" fill="#37765d" stroke="#37765d" stroke-width="1.1" /><rect x="209" y="152" width="30" height="30" rx="0" fill="#c79142" stroke="#9ba8b2" stroke-width="1.1" /><rect x="209" y="134" width="30" height="10" rx="0" fill="#37765d" stroke="#37765d" stroke-width="1.1" /><rect x="241" y="152" width="30" height="30" rx="0" fill="#c79142" stroke="#9ba8b2" stroke-width="1.1" /><rect x="241" y="134" width="30" height="10" rx="0" fill="#37765d" stroke="#37765d" stroke-width="1.1" /><rect x="273" y="152" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="273" y="134" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><rect x="305" y="152" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="305" y="134" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><rect x="337" y="152" width="30" height="30" rx="0" fill="url(#h)" stroke="#9ba8b2" stroke-width="1.1" /><rect x="337" y="134" width="30" height="10" rx="0" fill="#407c64" stroke="#407c64" stroke-width="1.1" /><rect x="369" y="152" width="30" height="30" rx="0" fill="url(#h)" stroke="#9ba8b2" stroke-width="1.1" /><rect x="369" y="134" width="30" height="10" rx="0" fill="#407c64" stroke="#407c64" stroke-width="1.1" /><rect x="401" y="152" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="401" y="134" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><rect x="433" y="152" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="433" y="134" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><rect x="465" y="152" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="465" y="134" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><text x="515" y="168" class="b">Commit core</text><rect x="34" y="221" width="664" height="74" rx="5" fill="white" stroke="#e0e3e6" stroke-width="1.1" /><text x="48" y="264" class="s">t + 1</text><rect x="113" y="249" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="113" y="231" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="145" y="249" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="145" y="231" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="177" y="249" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="177" y="231" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="209" y="249" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="209" y="231" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="241" y="249" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="241" y="231" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="273" y="249" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="273" y="231" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><rect x="305" y="249" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="305" y="231" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><rect x="337" y="249" width="30" height="30" rx="0" fill="#487ca5" stroke="#9ba8b2" stroke-width="1.1" /><rect x="337" y="231" width="30" height="10" rx="0" fill="#407c64" stroke="#407c64" stroke-width="1.1" /><rect x="369" y="249" width="30" height="30" rx="0" fill="#487ca5" stroke="#9ba8b2" stroke-width="1.1" /><rect x="369" y="231" width="30" height="10" rx="0" fill="#407c64" stroke="#407c64" stroke-width="1.1" /><rect x="401" y="249" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="401" y="231" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><rect x="433" y="249" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="433" y="231" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><rect x="465" y="249" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="465" y="231" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><text x="515" y="265" class="b">Confirm deferred</text><rect x="34" y="318" width="664" height="74" rx="5" fill="white" stroke="#e0e3e6" stroke-width="1.1" /><text x="48" y="361" class="s">t + 2</text><rect x="113" y="346" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="113" y="328" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="145" y="346" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="145" y="328" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="177" y="346" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="177" y="328" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="209" y="346" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="209" y="328" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="241" y="346" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="241" y="328" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="273" y="346" width="30" height="30" rx="0" fill="#c79142" stroke="#9ba8b2" stroke-width="1.1" /><rect x="273" y="328" width="30" height="10" rx="0" fill="#37765d" stroke="#37765d" stroke-width="1.1" /><rect x="305" y="346" width="30" height="30" rx="0" fill="#c79142" stroke="#9ba8b2" stroke-width="1.1" /><rect x="305" y="328" width="30" height="10" rx="0" fill="#37765d" stroke="#37765d" stroke-width="1.1" /><rect x="337" y="346" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="337" y="328" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="369" y="346" width="30" height="30" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><rect x="369" y="328" width="30" height="10" rx="0" fill="#e4e8eb" stroke="#e4e8eb" stroke-width="1.1" /><rect x="401" y="346" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="401" y="328" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><rect x="433" y="346" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="433" y="328" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><rect x="465" y="346" width="30" height="30" rx="0" fill="#fff" stroke="#9ba8b2" stroke-width="1.1" /><rect x="465" y="328" width="30" height="10" rx="0" fill="#c8d9d0" stroke="#c8d9d0" stroke-width="1.1" /><text x="515" y="362" class="b">Update core</text><path d="M306 200 L306 218" fill="none" stroke="#54616d" stroke-width="1.7" marker-end="url(#a)" /><path d="M306 297 L306 315" fill="none" stroke="#54616d" stroke-width="1.7" marker-end="url(#a)" /><path d="M352 184 L352 249" fill="none" stroke="#54616d" stroke-width="1.7" marker-end="url(#a)" /><path d="M384 184 L384 249" fill="none" stroke="#54616d" stroke-width="1.7" marker-end="url(#a)" /><path d="M727 222 L817 222" fill="none" stroke="#54616d" stroke-width="1.7" marker-end="url(#a)" /><text x="772" y="175" class="s" text-anchor="middle" style="font-size:19px">Shared</text><text x="772" y="196" class="s" text-anchor="middle" style="font-size:19px">trajectory</text><text x="921.0" y="102" class="s" text-anchor="middle">Prediction</text><text x="1073.0" y="88" class="s" text-anchor="middle">Span-level</text><text x="1073.0" y="108" class="s" text-anchor="middle">confidence</text><text x="1224.0" y="102" class="s" text-anchor="middle">Run length</text><text x="1376.0" y="102" class="s" text-anchor="middle">Decision</text><rect x="845.0" y="115" width="607" height="58" rx="3" fill="#fff" stroke="#dbe2e8" stroke-width="1.1" /><text x="921.0" y="154" class="n" text-anchor="middle">538</text><rect x="1003.0" y="136" width="141" height="17" rx="0" fill="#e9eef2" stroke="#d6dee5" stroke-width="1.1" /><rect x="1003.0" y="136" width="84.6" height="17" rx="0" fill="#7ba493" stroke="#7ba493" stroke-width="1.1" /><path d="M1105 129 V161" stroke="#5c6670" stroke-width="1.2" stroke-dasharray="3 2" /><rect x="1190.0" y="137" width="18" height="18" rx="2" fill="#487ca5" stroke="#a8bdce" stroke-width="1.1" /><rect x="1215.0" y="137" width="18" height="18" rx="2" fill="#fff" stroke="#a8bdce" stroke-width="1.1" /><rect x="1240.0" y="137" width="18" height="18" rx="2" fill="#fff" stroke="#a8bdce" stroke-width="1.1" /><text x="1106.0" y="130" class="s" style="font-size:20px;fill:#5c6670">τ</text><text x="1376.0" y="154" class="b" text-anchor="middle" style="fill:#657586">Continue</text><rect x="845.0" y="183" width="607" height="58" rx="3" fill="#fff" stroke="#dbe2e8" stroke-width="1.1" /><text x="921.0" y="211" class="n" text-anchor="middle">540</text><rect x="1003.0" y="204" width="141" height="17" rx="0" fill="#e9eef2" stroke="#d6dee5" stroke-width="1.1" /><rect x="1003.0" y="204" width="109.98" height="17" rx="0" fill="#588c77" stroke="#588c77" stroke-width="1.1" /><path d="M1105 197 V229" stroke="#5c6670" stroke-width="1.2" stroke-dasharray="3 2" /><rect x="1190.0" y="205" width="18" height="18" rx="2" fill="#487ca5" stroke="#a8bdce" stroke-width="1.1" /><rect x="1215.0" y="205" width="18" height="18" rx="2" fill="#fff" stroke="#a8bdce" stroke-width="1.1" /><rect x="1240.0" y="205" width="18" height="18" rx="2" fill="#fff" stroke="#a8bdce" stroke-width="1.1" /><text x="921.0" y="234" class="s" text-anchor="middle" style="font-size:19px;fill:#8d652b">revision</text><text x="1376.0" y="222" class="b" text-anchor="middle" style="fill:#657586">Continue</text><rect x="845.0" y="251" width="607" height="58" rx="3" fill="#fff" stroke="#dbe2e8" stroke-width="1.1" /><text x="921.0" y="290" class="n" text-anchor="middle">540</text><rect x="1003.0" y="272" width="141" height="17" rx="0" fill="#e9eef2" stroke="#d6dee5" stroke-width="1.1" /><rect x="1003.0" y="272" width="118.44" height="17" rx="0" fill="#4c846e" stroke="#4c846e" stroke-width="1.1" /><path d="M1105 265 V297" stroke="#5c6670" stroke-width="1.2" stroke-dasharray="3 2" /><rect x="1190.0" y="273" width="18" height="18" rx="2" fill="#487ca5" stroke="#a8bdce" stroke-width="1.1" /><rect x="1215.0" y="273" width="18" height="18" rx="2" fill="#487ca5" stroke="#a8bdce" stroke-width="1.1" /><rect x="1240.0" y="273" width="18" height="18" rx="2" fill="#fff" stroke="#a8bdce" stroke-width="1.1" /><text x="1376.0" y="290" class="b" text-anchor="middle" style="fill:#657586">Continue</text><rect x="845.0" y="319" width="607" height="58" rx="3" fill="#e7f0f8" stroke="#dbe2e8" stroke-width="1.1" /><text x="921.0" y="358" class="n" text-anchor="middle">540</text><rect x="1003.0" y="340" width="141" height="17" rx="0" fill="#e9eef2" stroke="#d6dee5" stroke-width="1.1" /><rect x="1003.0" y="340" width="124.08" height="17" rx="0" fill="#447f67" stroke="#447f67" stroke-width="1.1" /><path d="M1105 333 V365" stroke="#5c6670" stroke-width="1.2" stroke-dasharray="3 2" /><rect x="1190.0" y="341" width="18" height="18" rx="2" fill="#487ca5" stroke="#a8bdce" stroke-width="1.1" /><rect x="1215.0" y="341" width="18" height="18" rx="2" fill="#487ca5" stroke="#a8bdce" stroke-width="1.1" /><rect x="1240.0" y="341" width="18" height="18" rx="2" fill="#487ca5" stroke="#a8bdce" stroke-width="1.1" /><text x="1376.0" y="358" class="b" text-anchor="middle" style="fill:#285d85;font-weight:600">Exit</text><text x="862.0" y="400" class="s">Exit when confidence and stability criteria are met.</text><path d="M1262 417 L1262 446 L365 446 L365 416" fill="none" stroke="#54616d" stroke-width="1.7" marker-end="url(#a)" /><text x="740" y="439" class="s" text-anchor="middle" style="fill:#637483">Continue decoding</text><path d="M1453 348 L1477 348 L1477 468 L1293 468" fill="none" stroke="#54616d" stroke-width="1.7" marker-end="url(#a)" /><text x="1286.0" y="477" class="s" text-anchor="end">Fill remaining masks and stop</text><rect x="25" y="465" width="18" height="18" rx="0" fill="#d5dbe2" stroke="#9ba8b2" stroke-width="1.1" /><text x="52" y="482" class="s">Committed</text><rect x="205" y="465" width="18" height="18" rx="0" fill="#c79142" stroke="#9ba8b2" stroke-width="1.1" /><text x="232" y="482" class="s">Core</text><rect x="330" y="465" width="18" height="18" rx="0" fill="url(#h)" stroke="#9ba8b2" stroke-width="1.1" /><text x="357" y="482" class="s">Deferred</text><rect x="491" y="465" width="18" height="18" rx="0" fill="#487ca5" stroke="#9ba8b2" stroke-width="1.1" /><text x="518" y="482" class="s">Confirmed</text><rect x="679" y="470" width="4" height="9" rx="0" fill="#eff4ef" stroke="#eff4ef" stroke-width="1.1" /><rect x="683" y="470" width="4" height="9" rx="0" fill="#e5ede7" stroke="#e5ede7" stroke-width="1.1" /><rect x="687" y="470" width="4" height="9" rx="0" fill="#dbe6df" stroke="#dbe6df" stroke-width="1.1" /><rect x="691" y="470" width="4" height="9" rx="0" fill="#d0dfd7" stroke="#d0dfd7" stroke-width="1.1" /><rect x="695" y="470" width="4" height="9" rx="0" fill="#c6d8cf" stroke="#c6d8cf" stroke-width="1.1" /><rect x="699" y="470" width="4" height="9" rx="0" fill="#bcd1c6" stroke="#bcd1c6" stroke-width="1.1" /><rect x="703" y="470" width="4" height="9" rx="0" fill="#b2cabe" stroke="#b2cabe" stroke-width="1.1" /><rect x="707" y="470" width="4" height="9" rx="0" fill="#a8c3b6" stroke="#a8c3b6" stroke-width="1.1" /><rect x="711" y="470" width="4" height="9" rx="0" fill="#9dbcae" stroke="#9dbcae" stroke-width="1.1" /><rect x="715" y="470" width="4" height="9" rx="0" fill="#93b5a6" stroke="#93b5a6" stroke-width="1.1" /><rect x="719" y="470" width="4" height="9" rx="0" fill="#89ae9e" stroke="#89ae9e" stroke-width="1.1" /><rect x="723" y="470" width="4" height="9" rx="0" fill="#7fa796" stroke="#7fa796" stroke-width="1.1" /><rect x="727" y="470" width="4" height="9" rx="0" fill="#74a08e" stroke="#74a08e" stroke-width="1.1" /><rect x="731" y="470" width="4" height="9" rx="0" fill="#6a9986" stroke="#6a9986" stroke-width="1.1" /><rect x="735" y="470" width="4" height="9" rx="0" fill="#60927e" stroke="#60927e" stroke-width="1.1" /><rect x="739" y="470" width="4" height="9" rx="0" fill="#568b75" stroke="#568b75" stroke-width="1.1" /><rect x="743" y="470" width="4" height="9" rx="0" fill="#4c846d" stroke="#4c846d" stroke-width="1.1" /><rect x="747" y="470" width="4" height="9" rx="0" fill="#417d65" stroke="#417d65" stroke-width="1.1" /><rect x="751" y="470" width="4" height="9" rx="0" fill="#37765d" stroke="#37765d" stroke-width="1.1" /><rect x="755" y="470" width="4" height="9" rx="0" fill="#2d6f55" stroke="#2d6f55" stroke-width="1.1" /><text x="669" y="483" class="s" text-anchor="end" style="font-size:20px">Low</text><text x="768" y="483" class="s" style="font-size:20px">High confidence</text></svg></figure>
     <div class="cards two-col">
-      <div class="card" style="--c: var(--blue)">
-        <div class="k">CVEE · when to stop the sequence</div>
-        <p>At every step, a fixed parser pulls the current answer out of the provisional output. CVEE stops once</p>
-        <div class="eq">
-          <div><span class="v">c<sub>t</sub></span> ≥ τ <span class="eq-note">mean confidence over the answer span</span></div>
-          <div><span class="v">run<sub>t</sub></span> ≥ max(<span class="v">p</span><sub>min</sub>, ⌈γ · <span class="v">changes<sub>t</sub></span>⌉) <span class="eq-note">steps unchanged, more after each revision</span></div>
-        </div>
-        <p>Each time the answer changes, the required number of unchanged steps grows. An answer that settles at once exits after three steps; one that keeps revising has to stay put longer. Nothing in the rule depends on how far through the schedule decoding is.</p>
-      </div>
       <div class="card" style="--c: var(--gold)">
         <div class="k">CCTC · which tokens to commit now</div>
-        <p>Among masked positions in the active block whose confidence clears τ<sub>CCTC</sub>, CCTC commits a <b>core</b> next to the resolved left boundary, allowed to cross at most <span class="v">H</span> = 1 unresolved position.
-          Confident positions further right are <b>deferred</b>: their prediction is recorded and committed at the next step only if it is still confident and still the same token.</p>
-        <p>The decoder's own scheduled commits are kept, so progress is guaranteed, and confirmation reuses the next forward pass, so it costs no extra model call. A block whose positions are all committed skips its remaining steps.</p>
+        <p>In the active block, confident positions next to the resolved boundary form a <b>core</b> and commit at once; the core may step over one unresolved position (<span class="v">H</span>&nbsp;=&nbsp;1).
+          Confident positions further right are <b>deferred</b> and commit at the next step only if they still predict the same token.
+          The decoder's own scheduled commits are kept, and confirmation reuses the next forward pass, so nothing extra is computed.</p>
+      </div>
+      <div class="card" style="--c: var(--blue)">
+        <div class="k">CVEE · when to stop the sequence</div>
+        <p>At every step a fixed parser reads the current answer. Decoding stops once</p>
+        <div class="eq">
+          <div><span class="v">c<sub>t</sub></span> ≥ 0.7 <span class="eq-note">mean confidence over the answer</span></div>
+          <div><span class="v">run<sub>t</sub></span> ≥ max(3, ⌈2 · <span class="v">changes<sub>t</sub></span>⌉) <span class="eq-note">steps unchanged; more after each revision</span></div>
+        </div>
+        <p>The rule never looks at how far decoding has progressed; the remaining masks are filled in one step.</p>
       </div>
     </div>
-    <figure>
-      <div class="frame"><img src="static/fig/fig_cctc_compare.webp" alt="CCTC example: core commits near the boundary, low-confidence holes, deferred tokens confirmed at the next step" loading="lazy" width="1800" height="509"></div>
-      <figcaption><b>Commit the core, then confirm.</b> At step <span class="v">t</span>−1 the core commits <i>diffusion</i> and crosses one low-confidence hole (<span class="v">H</span> = 1) to reach <i>language</i>; <i>agent</i> and <i>system</i> are confident but far from the boundary, so they are deferred. At step <span class="v">t</span> they still predict the same tokens and are confirmed.</figcaption>
-    </figure>
-    <div class="chips"><span>τ<sub>CVEE</sub> = 0.7</span><span>γ = 2.0</span><span>p<sub>min</sub> = 3</span><span>τ<sub>CCTC</sub> = 0.8</span><span>H = 1</span><span>frozen for all 12 tasks × 2 backbones</span></div>
+    <div class="cctc" role="img" aria-label="CCTC example over two steps">
+      <div class="cctc-row"><span class="cctc-lab">step <span class="v">t</span>−1</span><div class="cks"><span class="ck old">this</span><span class="ck old">is</span><span class="ck old">the</span><span class="ck ck-core">diffusion</span><span class="ck low">[MASK]</span><span class="ck ck-core">language</span><span class="ck low">[MASK]</span><span class="ck def">agent</span><span class="ck def">system</span></div></div>
+      <div class="cctc-row"><span class="cctc-lab">step <span class="v">t</span></span><div class="cks"><span class="ck old">this</span><span class="ck old">is</span><span class="ck old">the</span><span class="ck old">diffusion</span><span class="ck ck-core">large</span><span class="ck old">language</span><span class="ck ck-core">model</span><span class="ck cf">agent</span><span class="ck cf">system</span></div></div>
+      <div class="rp-legend cctc-leg">
+        <span><i class="ck-sw old"></i>committed earlier</span><span><i class="ck-sw ck-core"></i>core, committed now</span>
+        <span><i class="ck-sw low"></i>low confidence, stays masked</span><span><i class="ck-sw def"></i>deferred</span><span><i class="ck-sw cf"></i>confirmed</span>
+      </div>
+    </div>
+    <p class="note">At step <span class="v">t</span>−1 the core commits <i>diffusion</i>, steps over one low-confidence hole and commits <i>language</i>; <i>agent</i> and <i>system</i> are confident but far from the boundary, so they wait. At step <span class="v">t</span> they still predict the same tokens and are confirmed. Example from the paper's Figure 3.</p>
+    <div class="chips"><span>τ<sub>CVEE</sub> = 0.7</span><span>γ = 2.0</span><span>p<sub>min</sub> = 3</span><span>τ<sub>CCTC</sub> = 0.8</span><span>H = 1</span><span>one setting for 12 tasks × 2 backbones</span></div>
   </div>
 
   <div class="finding" id="gate-lab">
     <div class="f-k">Step through a recorded run</div>
     <h3>Watch both gates on a real trajectory.</h3>
-    <p>Pick a task and scrub through the steps. The token row is the active generation; the gate panel shows the answer CVEE extracts at that step, its confidence, and how many unchanged steps it still needs.</p>
+    <p>Scrub through a recorded C<sup>4</sup> run: the output with this step's commits, and the answer, confidence and patience CVEE sees.</p>
     <div id="lab" class="lab" aria-live="polite"></div>
   </div>
 </section>
 
 <section id="results">
   <h2 class="sec">Results</h2>
-  <p>Zero-shot evaluation on 12 tasks: five short-answer (64-token output), five long-reasoning (256) and two code-generation tasks graded by hidden tests (384).
-    Backbones are LLaDA-8B-Instruct and Dream-7B-Instruct with greedy decoding in bf16; speedup is tokens per second relative to full decoding of the same model, timed on one RTX 4090.</p>
+  <p>12 zero-shot tasks: five short-answer (64-token output), five long-reasoning (256) and two code tasks graded by hidden tests (384), on LLaDA-8B-Instruct and Dream-7B-Instruct. Speedup is tokens per second relative to full decoding of the same model, on one RTX 4090.</p>
 
   <div class="finding first">
     <div class="f-k">Main result</div>
     <h3>Faster everywhere, accuracy within two points everywhere.</h3>
-    <div class="heat-legend"><span>2×</span><i></i><span>19×</span><span class="hl-note">cell: decoding-loop speedup · Δ accuracy in points vs. full decoding</span></div>
+    <div class="heat-legend"><span>2×</span><i></i><span>19×</span><span class="hl-note">cell: speedup · Δ accuracy in points vs. full decoding</span></div>
     <div class="table-wrap">
       <table class="heat" id="heat">
         <thead><tr><th>Task</th><th>Output</th><th>LLaDA-8B</th><th>Dream-7B</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
-    <p class="note">Speedup is method TPS over full-decoding TPS on a fixed 20-example timing subset (three repeats); accuracy and steps use each task's full evaluation set. Accuracy differences are point estimates on finite samples, not equivalence claims. Full table, including Prophet, SchED, SlowFast, KLASS and WINO: Table 1 of the paper.</p>
+    <p class="note">Timing: fixed 20-example subset, three repeats; accuracy and steps: each task's full evaluation set. Accuracy differences are point estimates, not equivalence claims. Baseline rows: paper Table 1.</p>
   </div>
 
   <div class="finding">
     <div class="f-k">Where the savings come from</div>
     <h3>Early exit carries short answers; faster commitment carries reasoning and code.</h3>
-    <p>Starting from full decoding, add the CVEE exit gate alone, then the CCTC core, then one-step confirmation, then CCTC on every block including the last (= C<sup>4</sup>). Bars are average decoding steps.</p>
+    <p>From full decoding, add the CVEE exit gate, then the CCTC core, then confirmation, then CCTC on every block (= C<sup>4</sup>). Bars are average decoding steps (paper Table 3).</p>
     <div class="seg" role="radiogroup" aria-label="Backbone">
       <button role="radio" aria-checked="true" data-bb="llada">LLaDA-8B</button><button role="radio" aria-checked="false" data-bb="dream">Dream-7B</button>
     </div>
     <div id="abl" class="abl"></div>
-    <p class="note">On MMLU the exit gate alone already removes 89% of the steps. On GSM8K it removes almost nothing (250 of 256 steps on LLaDA, all 256 on Dream), because reasoning answers settle near the end; CCTC supplies the speedup there. Values: Table 3 of the paper.</p>
-  </div>
-
-  <div class="finding">
-    <div class="f-k">Why both conditions</div>
-    <h3>Confidence alone or stability alone each fail somewhere.</h3>
-    <div class="core">
-      <div class="core-card bad">
-        <div class="core-k">Confidence only · HumanEval · LLaDA</div>
-        <div class="core-num">40.2 → 4.9<small> %</small></div>
-        <div class="core-lbl">Confident is not the same as finished.</div>
-        <p>Stopping as soon as the answer span is confident ends a 384-step program after 9.7 steps on average, and accuracy collapses.</p>
-      </div>
-      <div class="core-card bad">
-        <div class="core-k">Stability only · GSM8K · LLaDA</div>
-        <div class="core-num">66.0 → 33.0<small> %</small></div>
-        <div class="core-lbl">Unchanged is not the same as settled.</div>
-        <p>Stopping once the extracted answer has stayed the same for a few steps ends after 24.5 of 256 steps on average, and accuracy halves.</p>
-      </div>
+    <div class="gatefail">
+      <div><b>Confidence alone</b> stops a 384-step HumanEval program after 9.7 steps: accuracy <span class="bad">40.2 → 4.9</span>.</div>
+      <div><b>Stability alone</b> stops GSM8K after 24.5 of 256 steps: accuracy <span class="bad">66.0 → 33.0</span>.</div>
     </div>
-    <p class="also">Requiring both keeps full-decoding accuracy on GSM8K for both backbones, at the cost of waiting nearly the whole schedule — which is why the reasoning speedup has to come from CCTC.</p>
+    <p class="note">Requiring both keeps full-decoding GSM8K accuracy on both backbones but waits almost the whole schedule, which is why the reasoning speedup has to come from CCTC.</p>
   </div>
 
   <div class="finding">
     <div class="f-k">Composition</div>
-    <h3>Bolting an exit gate onto another sampler is not free.</h3>
-    <p>We keep WINO's local update rule and use CVEE only to stop (LLaDA). Where answers settle early, CVEE removes another 70–76% of WINO's steps at unchanged accuracy. On reasoning and code, the same setting stops too soon; a more conservative setting recovers the accuracy but also nearly all of the steps.</p>
+    <h3>An exit gate on another sampler.</h3>
+    <p>WINO's update rule with CVEE only deciding when to stop (LLaDA). Short answers lose another 70–76% of their steps at the same accuracy; on reasoning and code, keeping accuracy means keeping almost all of WINO's steps.</p>
     <div class="table-wrap">
       <table class="plain">
         <thead><tr><th>Task</th><th colspan="2">WINO</th><th colspan="2">+ CVEE</th><th colspan="2">Conservative CVEE</th></tr>
@@ -258,7 +226,7 @@ and code generation.</p></div>
         </tbody>
       </table>
     </div>
-    <p class="note">The lesson is that local sampling shapes the trajectory the stop rule reads, so the two have to be designed together. It also cuts the other way: on LLaDA GSM8K, WINO alone beats C<sup>4</sup> in both accuracy (72.0 vs 64.0) and speed (4.03× vs 3.55×); when early-exit opportunities are scarce, the strongest local sampler can win.</p>
+    <p class="note">WINO is also the strongest local sampler here: on LLaDA GSM8K it beats C<sup>4</sup> in both accuracy (72.0 vs 64.0) and speed (4.03× vs 3.55×). When early exit has little to remove, the best local sampler can win.</p>
   </div>
 </section>
 
@@ -266,6 +234,23 @@ and code generation.</p></div>
   <h2 class="sec">Video</h2>
   <div class="teaser"><video id="promo" controls preload="metadata" playsinline poster="static/video/c4_promo_poster.jpg?v=3"><source src="static/video/c4_promo.mp4?v=3" type="video/mp4"></video></div>
   <p class="note center">Every decoding frame in the video is rendered from the same recorded runs as the replay above.</p>
+</section>
+
+<section id="related">
+  <h2 class="sec">Related work</h2>
+  <p>C<sup>4</sup> builds on and compares with these works on diffusion language models and their acceleration.</p>
+  <ul class="related">
+    <li><a href="https://openreview.net/forum?id=3Z3Is6hnOT" target="_blank" rel="noopener">[ICLR 2026] Fast-dLLM: Training-Free Acceleration of Diffusion LLM by Enabling KV Cache and Parallel Decoding</a><p>Confidence-threshold parallel decoding; CCTC extends its commit rule with a core and one-step confirmation.</p></li>
+    <li><a href="https://openreview.net/forum?id=Uh17FiwF4q" target="_blank" rel="noopener">[ICLR 2026] Accelerating Diffusion Large Language Models with SlowFast Sampling: The Three Golden Principles</a><p>Commits tokens faster from token-level statistics; a local-sampling baseline.</p></li>
+    <li><a href="https://proceedings.neurips.cc/paper_files/paper/2025/hash/8514c1f12dcdd061ac8521feb78f28ca-Abstract-Conference.html" target="_blank" rel="noopener">[NeurIPS 2025] KLASS: KL-Guided Fast Inference in Masked Diffusion Models</a><p>KL-guided commitment of stable tokens; a local-sampling baseline.</p></li>
+    <li><a href="https://proceedings.iclr.cc/paper_files/paper/2026/hash/435cce71b4007699041dfffa4f034079-Abstract-Conference.html" target="_blank" rel="noopener">[ICLR 2026] Wide-In, Narrow-Out: Revokable Decoding for Efficient and Effective DLLMs</a><p>WINO: commits broadly and re-masks disputed positions; the sampler we pair with CVEE in the composition study.</p></li>
+    <li><a href="https://openreview.net/forum?id=g88nt4ieTG" target="_blank" rel="noopener">[ICLR 2026] Diffusion Language Model Knows the Answer Before It Decodes</a><p>Prophet: stops when confidence over a fixed region clears staged thresholds; the main early-exit baseline.</p></li>
+    <li><a href="https://aclanthology.org/2026.findings-acl.1782/" target="_blank" rel="noopener">[ACL Findings 2026] Fast-Decoding Diffusion Language Models via Progress-Aware Confidence Schedules</a><p>SchED: stops when confidence clears a schedule that depends on decoding progress; an early-exit baseline.</p></li>
+    <li><a href="https://openreview.net/forum?id=ynRnOqI2W8" target="_blank" rel="noopener">[ICML 2026] Efficient-DLM: From Autoregressive to Diffusion Language Models, and Beyond in Speed</a><p>Its study of decoding order motivates CCTC's boundary-anchored core.</p></li>
+    <li><a href="https://arxiv.org/abs/2512.15713" target="_blank" rel="noopener">[ECCV 2026] DiffusionVL: Translating Any Autoregressive Models into Diffusion Vision Language Models</a><p>Blockwise prediction that also informs the core.</p></li>
+    <li><a href="https://openreview.net/forum?id=KnqiC0znVF" target="_blank" rel="noopener">[NeurIPS 2025] Large Language Diffusion Models</a><p>LLaDA-8B-Instruct, the backbone C<sup>4</sup> is calibrated on.</p></li>
+    <li><a href="https://arxiv.org/abs/2508.15487" target="_blank" rel="noopener">[arXiv 2025] Dream 7B: Diffusion Large Language Models</a><p>Dream-7B-Instruct, the second backbone, used with the same frozen setting.</p></li>
+  </ul>
 </section>
 
 <section id="bibtex">
@@ -290,6 +275,6 @@ and code generation.</p></div>
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Figure"><button class="lightbox-close" type="button" aria-label="Close">×</button><img alt=""></div>
 
 <script src="static/js/results.js?v=4"></script>
-<script src="static/js/replay.js?v=4"></script>
+<script src="static/js/replay.js?v=5"></script>
 </body>
 </html>
