@@ -23,11 +23,13 @@ index.html                # the page
 static/css/site.css       # styles (palette taken from the paper's figures)
 static/js/results.js      # results heatmap, component-ablation bars, lightbox, BibTeX copy
 static/js/replay.js       # hero replay (C⁴ vs. full decoding) and the step-through gate lab
+static/js/compare.js      # hero replay, second mode: C⁴ vs. Prophet, SlowFast, WINO on the same prompt
 static/traces/*.json      # recorded decoding traces the replays play back
 static/fig/*.webp         # paper figures, rasterized from the manuscript PDFs
 static/video/             # promo video (+ poster)
 static/pdf/paper.pdf      # public preprint
-tools/compact_traces.py   # raw traces -> static/traces/*.json
+tools/compact_traces.py   # raw traces -> static/traces/{mmlu,gsm8k,humaneval}.json
+tools/compact_compare.py  # paper replay recordings -> static/traces/cmp_*.json (prompts in tools/cmp_prompts.json)
 ```
 
 ## Where the numbers come from
@@ -44,6 +46,13 @@ tools/compact_traces.py   # raw traces -> static/traces/*.json
   GSM8K `(n=100, seed=0, skip=40)[0]`, HumanEval `[68]` (`unique(l)`). They are single examples, not averages;
   the wall-clock ratios they show (≈12× MMLU, ≈5× GSM8K, ≈16× HumanEval) are for these prompts on a 3090, while the
   paper's speedups are task averages timed on an RTX 4090.
+- **"C⁴ vs other methods" replay:** the per-method recordings made for the paper's case figures
+  (C⁴, Prophet, SlowFast, WINO on the same prompts, one GPU, LLaDA-8B-Instruct): per-step argmax and committed buffer.
+  Prophet is rebuilt from the full-decoding trajectory it ran on, cut at its recorded trigger step plus its one-shot
+  fill. Every reconstruction was checked against the run's own recorded result (same extracted answer for MMLU #163
+  and GSM8K #77; identical program text for HumanEval/68, except SlowFast, which stored only pass/fail). Only total
+  wall time per run was recorded, so playback spreads it evenly over that run's steps. These three prompts are
+  hand-picked showcase cases; C⁴ is not the fastest on two of them (WINO on GSM8K, SlowFast on HumanEval).
 - **Promo video:** rendered frame by frame from the same `static/traces/*.json`; build scripts live outside this repo.
 
 ## Rebuilding the trace files

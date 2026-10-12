@@ -363,3 +363,10 @@ figure.ov { margin: 8px 0 22px; padding: 14px; border: 1px solid var(--line); bo
 .related a { font-weight: 500; }
 .related p { margin: 2px 0 0; font-size: 14.5px; color: var(--ink-2); }
 @media (max-width: 600px) { .gatefail { grid-template-columns: minmax(0, 1fr); } .cctc-row { grid-template-columns: minmax(0, 1fr); gap: 4px; } .ck { font-size: 10.5px; padding: 6px 1px; } .cks { gap: 3px; } }
+/* hero mode switch + four-way comparison */
+.mode-row { display: flex; justify-content: center; margin-bottom: 14px; }
+.mode-seg { margin: 0; background: #fff; }
+.cmp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cmp-grid .rp-body { min-height: 170px; max-height: 230px; font-size: 12.5px; }
+.rp-name small { font: 500 12px/1 var(--sans); color: var(--ink-3); margin-left: 6px; }
+@media (max-width: 860px) { .cmp-grid { grid-template-columns: minmax(0, 1fr); } }

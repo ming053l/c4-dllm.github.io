@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans:ital,wght@0,400;0,600;0,700;1,400&family=Source+Serif+4:ital@1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="static/css/site.css?v=7">
+<link rel="stylesheet" href="static/css/site.css?v=8">
 </head>
 <body>
 
@@ -47,9 +47,15 @@
 
 <div class="band">
   <div class="wrap wide">
+    <div class="mode-row"><div class="seg mode-seg" role="radiogroup" aria-label="Replay">
+      <button role="radio" aria-checked="true" data-mode="full" type="button">C⁴ vs full decoding</button><button role="radio" aria-checked="false" data-mode="compare" type="button">C⁴ vs other methods</button>
+    </div></div>
     <div id="replay" class="replay" aria-label="Recorded decoding replay"></div>
-    <p class="caption"><b>The same prompt, decoded twice.</b> Left: C<sup>4</sup>. Right: full decoding, which runs every scheduled step.
+    <div id="compare" class="replay" aria-label="Recorded comparison with other methods" hidden></div>
+    <p class="caption mode-cap" data-mode="full"><b>The same prompt, decoded twice.</b> Left: C<sup>4</sup>. Right: full decoding, which runs every scheduled step.
       Both panels replay a recorded LLaDA-8B-Instruct run step by step at its measured speed on one RTX 3090; every token, confidence and gate value comes from the logged model state. One sample per task, not an average: task-level results are <a href="#results">below</a>.</p>
+    <p class="caption mode-cap" data-mode="compare" hidden><b>The same prompt, four decoders.</b> C<sup>4</sup>, Prophet (early exit), SlowFast and WINO (faster sampling), each replayed from the recording made for the paper on one GPU with LLaDA-8B-Instruct.
+      All four share one clock; each run is paced by its own measured wall time, spread evenly over its steps. These are three hand-picked examples, and C<sup>4</sup> is not always fastest: WINO finishes first on the GSM8K prompt and SlowFast on the HumanEval prompt (where Prophet stops early and fails the tests). Task-level results are <a href="#results">below</a>.</p>
   </div>
 </div>
 
@@ -276,5 +282,6 @@ and code generation.</p></div>
 
 <script src="static/js/results.js?v=4"></script>
 <script src="static/js/replay.js?v=5"></script>
+<script src="static/js/compare.js?v=1"></script>
 </body>
 </html>
