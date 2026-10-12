@@ -32,7 +32,7 @@
         t += s.w;
         return { tok: tok.slice(), frozen: frozen.slice(), cat, def: new Set(s.c.d || []), q: s.q, b: s.b, v: s.v, a: s.a, t };
       });
-      // traced per-step times, rescaled to the un-instrumented wall time of the same run
+      // measured per-step times of the recorded run
       const k = run.wall_s * 1000 / t;
       run.frames.forEach(f => { f.t *= k; });
     }

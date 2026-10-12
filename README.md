@@ -38,10 +38,11 @@ tools/compact_traces.py   # raw traces -> static/traces/*.json
   (τ_CCTC 0.8, H 1, confirm on, every block; CVEE τ 0.7, γ 2.0, p_min 3) and with full decoding, on one RTX 3090.
   Tokens, confidences, commit categories, CVEE state and per-step wall time are copied from the trace; each
   instrumented run was checked to produce the same text and step count as the un-instrumented `generate_live`.
-  Per-step times are rescaled to the un-instrumented wall time of the same run.
+  Per-step times are those measured in the recorded run. They agree with an un-instrumented rerun within about 2%,
+  except the first decode after model load (MMLU C⁴: 0.59 s untraced, warm-up included, vs 0.34 s).
   Samples (C4-dLLM `prompts.LOADERS`, code at commit a0a9551): MMLU `(n=200, seed=0, skip=40)[6]`,
   GSM8K `(n=100, seed=0, skip=40)[0]`, HumanEval `[68]` (`unique(l)`). They are single examples, not averages;
-  the wall-clock ratios they show (≈7× MMLU, ≈5× GSM8K, ≈16× HumanEval) are for these prompts on a 3090, while the
+  the wall-clock ratios they show (≈12× MMLU, ≈5× GSM8K, ≈16× HumanEval) are for these prompts on a 3090, while the
   paper's speedups are task averages timed on an RTX 4090.
 - **Promo video:** rendered frame by frame from the same `static/traces/*.json`; build scripts live outside this repo.
 
@@ -51,4 +52,4 @@ tools/compact_traces.py   # raw traces -> static/traces/*.json
 python3 tools/compact_traces.py RAW_TRACE_DIR PATH_TO_C4_REPO mmlu gsm8k humaneval
 ```
 
-`RAW_TRACE_DIR` holds `<name>_c4.json` / `<name>_base.json` written by the trace recorder.
+`RAW_TRACE_DIR` holds `<name>_c4.json` / `<name>_base.json` written by the trace recorder (an instrumented copy of `c4/decode.py` with read-only hooks; kept with the authors, available on request).

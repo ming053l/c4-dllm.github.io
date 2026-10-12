@@ -62,7 +62,8 @@ def compact(run, extract=None, task=None):
     m, r = run["meta"], run["result"]
     return {
         "arm": m["arm"], "steps": r["steps_used"], "budget": r["steps_budget"],
-        "wall_s": r["wall_s_untraced"], "correct": r["correct"], "pred": r["pred"],
+        # traced wall time: the untraced mmlu_c4 run absorbed first-decode warm-up (0.59 vs 0.34 s)
+        "wall_s": r["wall_s_traced"], "correct": r["correct"], "pred": r["pred"],
         "block_steps": r["block_steps"], "settle": settle,
         "vocab": {i: vocab[i] for i in sorted(used) if i in vocab}, "steps_log": out,
     }
